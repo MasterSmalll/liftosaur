@@ -2,7 +2,7 @@ import { UserDao, ILimitedUserDao } from "../dao/userDao";
 import { IDI } from "./di";
 import { IApiError } from "./apiv1";
 import { IEither } from "../../src/utils/types";
-import { ICustomMetricDefinition, ICustomMetricValue, IHistoryRecord, ISet, VCustomMetricDefinition } from "../../src/types";
+import { ICustomMetricDefinition, ICustomMetricValue, IHistoryRecord, VCustomMetricDefinition } from "../../src/types";
 import { CustomMetrics_definitions, CustomMetrics_setValue, CustomMetrics_updateSet, CustomMetrics_validate } from "../../src/models/customMetrics";
 import { CustomMetrics_numericSeries } from "../../src/models/customMetrics";
 import { WorkoutHistory_summarize, WorkoutHistory_totals, WorkoutHistory_trend, IWorkoutHistoryMeasure, IWorkoutHistoryGrouping } from "../../src/models/workoutHistoryDashboard";
@@ -142,7 +142,6 @@ export async function ApiV1_upsertCustomMetricDefinition(
   if (previous && (previous.kind !== definition.kind || previous.scope !== definition.scope)) {
     return err(409, "metric_schema_locked", "A metric's kind and scope cannot change after creation");
   }
-  const existing = user.storage.settings.customMetricDefinitions ?? [];
   await new UserDao(di).applyStorageUpdate(
     user,
     (old) => ({
