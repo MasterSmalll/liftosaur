@@ -68,3 +68,38 @@ The personal MacroFactor CSV remains in its original private Google Drive folder
 The granular MacroFactor Workouts CSV is **historical workout data**, not a complete
 program export. A separate MacroFactor program export is needed to reconstruct
 future planned exercises, weeks, targets and progression rules.
+
+## Web-first rollout and complete workout history
+
+The initial delivery target is the existing **web/PWA user experience**, not a new live-workout application.
+
+The fork includes **Graphs → All Workouts — History**, a read-only dashboard built on
+`storage.history` (the same Liftosaur records used by the app's existing workout list).
+It provides:
+- Last 90 days / year / all-time, program and exercise filters
+- Working sets, repetitions, training time and Liftosaur-calculated volume totals
+- Per-workout, weekly (ISO Monday) or calendar-month graph aggregation
+- A chronological record list with expandable exercise summaries
+- Works with historically imported MacroFactor Workouts and native Liftosaur records
+
+**Interpretation:** The volume calculation delegates to Liftosaur's existing
+`History_totalEntryWeight`; it does not independently reconstruct total
+bodyweight-plus-external-weight for all calisthenics movements. Exercise filtering
+preserves the complete *session* duration, not time per exercise. Unknown durations
+are not converted into huge running durations.
+
+### Web deployment / connector interoperability
+
+- The official `liftosaur.com/planner` URL is a program planner.
+  The app and workout history are at `liftosaur.com/app`.
+- Installing a GitHub fork does **not** patch Liftosaur's hosted
+  website, native mobile app, public API backend, or ChatGPT connector.
+- The fork's web frontend can be built and hosted separately, but sharing live account
+  data and custom metric synchronization requires validated backend/API compatibility,
+  authentication, cross-origin policy, versioned migrations, and rollback.
+- Until independently proven, keep the existing hosted Liftosaur account and the
+  ChatGPT connector as the authoritative record; use JSON/CSV backups before trying
+  a separate fork deployment.
+- **Do not** connect an experimental fork directly to the official account in a way
+  that can overwrite or silently discard unknown custom fields.
+- Native iPhone and Apple Watch builds are out of scope for the first phase.
