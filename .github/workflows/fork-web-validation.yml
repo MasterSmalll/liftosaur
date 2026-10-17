@@ -1,13 +1,14 @@
 name: Fork Web Custom Metrics Validation
 
 on:
-  push:
-    branches:
-      - feature/custom-metrics-rir
   pull_request:
     branches:
       - master
   workflow_dispatch:
+
+concurrency:
+  group: fork-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
