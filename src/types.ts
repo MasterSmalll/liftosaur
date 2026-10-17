@@ -517,6 +517,7 @@ export interface ISet {
   completedReps?: number;
   completedWeight?: IWeight;
   completedRpe?: number;
+  rpeDerivedFromRir?: boolean;
   customMetrics?: ICustomMetricValues;
   completedSetTimer?: number;
   completedSetTimerLeft?: number;
@@ -546,6 +547,7 @@ const _VSet = v.object({
   completedReps: v.optional(v.number()),
   completedWeight: v.optional(VWeight),
   completedRpe: v.optional(v.number()),
+  rpeDerivedFromRir: v.optional(v.boolean()),
   customMetrics: v.optional(VCustomMetricValues),
   completedSetTimer: v.optional(v.number()),
   completedSetTimerLeft: v.optional(v.number()),
