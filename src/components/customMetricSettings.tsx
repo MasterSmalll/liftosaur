@@ -69,8 +69,8 @@ export function CustomMetricSettings(props: IProps): JSX.Element {
             name={definition.name}
             value={definition.name}
             onChange={(newValue) => {
-              if (newValue.trim()) {
-                update({ ...definition, name: newValue.trim() });
+              if (newValue?.trim()) {
+                update({ ...definition, name: newValue!.trim() });
               }
             }}
           />
@@ -81,7 +81,7 @@ export function CustomMetricSettings(props: IProps): JSX.Element {
             type="text"
             name={`Unit for ${definition.name}`}
             value={definition.unit ?? ""}
-            onChange={(next) => update({ ...definition, unit: next.trim() || undefined })}
+            onChange={(next) => update({ ...definition, unit: next?.trim() || undefined })}
           />
           <MenuItemEditable
             type="boolean"
