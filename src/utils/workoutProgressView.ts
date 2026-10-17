@@ -12,6 +12,7 @@ export interface IWorkoutProgressView {
   programId: string;
   startTime: number;
   notes: string | undefined;
+  customMetrics: IHistoryRecord["customMetrics"];
   userPromptedStateVars: IHistoryRecord["userPromptedStateVars"];
   forceUpdateEntryIndex: boolean;
   isExternal: boolean;
@@ -33,6 +34,7 @@ export function WorkoutProgressView_next(
     programId: progress.programId,
     startTime: progress.startTime,
     notes: progress.notes,
+    customMetrics: progress.customMetrics,
     userPromptedStateVars: progress.userPromptedStateVars,
     forceUpdateEntryIndex: !!progress.ui?.forceUpdateEntryIndex,
     isExternal: !!progress.ui?.isExternal,
