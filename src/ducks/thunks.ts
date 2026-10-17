@@ -119,6 +119,7 @@ import { RollbarUtils_config } from "../utils/rollbar";
 import { UrlUtils_build } from "../utils/url";
 import { ImportFromLiftosaur_convertLiftosaurCsvToHistoryRecords } from "../utils/importFromLiftosaur";
 import { ImportFromHevy_convertHevyCsvToHistoryRecords } from "../utils/importFromHevy";
+import { ImportFromMacroFactor_convertCsvToHistoryRecords } from "../utils/importFromMacroFactor";
 import { Sync_getStorageUpdate2 } from "../utils/sync";
 import {
   ISyncBaselineSource,
@@ -1858,6 +1859,33 @@ export function Thunk_importHevyData(rawCsv: string): IThunk {
   };
 }
 
+export function Thunk_importMacroFactorData(rawCsv: string): IThunk {
+  return async (dispatch, getState) => {
+    try {
+      dispatch(Thunk_postevent("import-macrofactor-data"));
+      const result = await importWithSpinner(dispatch, () =>
+        ImportFromMacroFactor_convertCsvToHistoryRecords(rawCsv, getState().storage.settings)
+      );
+      if (result.historyRecords.length === 0) {
+        Dialog_alert("No valid MacroFactor workouts found in the file.");
+        return;
+      }
+      updateState(
+        dispatch,
+        [lb<IState>().p("importPreview").record({ source: "macroFactor", result })],
+        "Open MacroFactor import preview"
+      );
+      dispatch(Thunk_pushScreen("importPreview"));
+    } catch (e) {
+      if (e instanceof ImportFileError) Dialog_alert(e.message);
+      else {
+        console.error(e);
+        Dialog_alert("Failed to parse MacroFactor Workouts export.");
+      }
+    }
+  };
+}
+
 export function Thunk_undoImport(sessionId: string): IThunk {
   return async (dispatch, getState) => {
     const storage = getState().storage;
@@ -1867,7 +1895,7 @@ export function Thunk_undoImport(sessionId: string): IThunk {
     }
     const editedCount = ImportSession_findEditedRecordIds(storage, session).length;
     const editedWarning = editedCount > 0 ? ` ${editedCount} of them were edited after the import.` : "";
-    const sourceName = session.source === "hevy" ? "Hevy" : "CSV";
+    const sourceName = session.source === "hevy" ? "Hevy" : session.source === "macroFactor" ? "MacroFactor" : "CSV";
     if (
       !(await Dialog_confirm(
         `Remove ${session.workoutCount} ${StringUtils_pluralize("workout", session.workoutCount)} imported from ${sourceName} on ${DateUtils_format(session.timestamp)}?${editedWarning}`
@@ -1896,7 +1924,7 @@ export function Thunk_applyImport(
         lb<IState>().p("storage").p("settings").p("exercises").record(applied.exercises),
         lb<IState>().p("storage").p("importSessions").record(applied.importSessions),
       ],
-      `Import history from ${source === "hevy" ? "Hevy" : "CSV"}`
+      `Import history from ${source === "hevy" ? "Hevy" : source === "macroFactor" ? "MacroFactor" : "CSV"}`
     );
   };
 }
