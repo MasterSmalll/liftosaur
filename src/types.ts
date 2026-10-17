@@ -464,6 +464,35 @@ void _VCustomExerciseMatches;
 export const VCustomExercise: v.GenericSchema<ICustomExercise> = _VCustomExercise;
 export type IAllCustomExercises = Partial<Record<string, ICustomExercise>>;
 
+// Stable identifiers preserve custom metric history when a metric is renamed.
+export type ICustomMetricScope = "set" | "exercise" | "workout";
+export type ICustomMetricKind = "number" | "boolean" | "text";
+export type ICustomMetricValue = number | boolean | string;
+export type ICustomMetricValues = Record<string, ICustomMetricValue | undefined>;
+
+export interface ICustomMetricDefinition {
+  id: string;
+  name: string;
+  scope: ICustomMetricScope;
+  kind: ICustomMetricKind;
+  unit?: string;
+  min?: number;
+  max?: number;
+  disabled?: boolean;
+}
+export const VCustomMetricValue = v.union([v.number(), v.boolean(), v.string()]);
+export const VCustomMetricValues = v.record(v.string(), v.optional(VCustomMetricValue));
+export const VCustomMetricDefinition: v.GenericSchema<ICustomMetricDefinition> = v.object({
+  id: v.string(),
+  name: v.string(),
+  scope: v.union([v.literal("set"), v.literal("exercise"), v.literal("workout")]),
+  kind: v.union([v.literal("number"), v.literal("boolean"), v.literal("text")]),
+  unit: v.optional(v.string()),
+  min: v.optional(v.number()),
+  max: v.optional(v.number()),
+  disabled: v.optional(v.boolean()),
+});
+
 export interface ISet {
   vtype: "set";
   index: number;
@@ -488,6 +517,7 @@ export interface ISet {
   completedReps?: number;
   completedWeight?: IWeight;
   completedRpe?: number;
+  customMetrics?: ICustomMetricValues;
   completedSetTimer?: number;
   completedSetTimerLeft?: number;
   programSetIndex?: number;
@@ -516,6 +546,7 @@ const _VSet = v.object({
   completedReps: v.optional(v.number()),
   completedWeight: v.optional(VWeight),
   completedRpe: v.optional(v.number()),
+  customMetrics: v.optional(VCustomMetricValues),
   completedSetTimer: v.optional(v.number()),
   completedSetTimerLeft: v.optional(v.number()),
   programSetIndex: v.optional(v.number()),
@@ -558,6 +589,7 @@ export interface IHistoryEntry {
   state?: IProgramState;
   vars?: IProgramState;
   notes?: string;
+  customMetrics?: ICustomMetricValues;
   changed?: boolean;
   isSuppressed?: boolean;
   superset?: string;
@@ -576,6 +608,7 @@ const _VHistoryEntry = v.object({
   state: v.optional(VProgramState),
   vars: v.optional(VProgramState),
   notes: v.optional(v.string()),
+  customMetrics: v.optional(VCustomMetricValues),
   changed: v.optional(v.boolean()),
   isSuppressed: v.optional(v.boolean()),
   superset: v.optional(v.string()),
@@ -1028,6 +1061,7 @@ export interface IHistoryRecord {
   // across devices — auto-advancing past an exercise (EMOM/Tabata) on one client moves the others too.
   currentEntryIndex?: number;
   notes?: string;
+  customMetrics?: ICustomMetricValues;
   updatedAt?: number;
   // Which client wrote this workout, from the X-Liftosaur-Client header on the public API. Absent for
   // anything logged in our own apps. Provenance can't be reconstructed later, so it's recorded at write time.
@@ -1093,6 +1127,7 @@ const _VHistoryRecord = v.object({
   ),
   currentEntryIndex: v.optional(v.number()),
   notes: v.optional(v.string()),
+  customMetrics: v.optional(VCustomMetricValues),
   updatedAt: v.optional(v.number()),
   source: v.optional(v.string()),
 });
@@ -1631,6 +1666,7 @@ export interface ISettings {
     hideWithoutExerciseNotes?: boolean;
   };
   exercises: Record<string, ICustomExercise | undefined>;
+  customMetricDefinitions?: ICustomMetricDefinition[];
   statsEnabled: IStatsEnabled;
   units: IUnit;
   lengthUnits: ILengthUnit;
@@ -1682,6 +1718,7 @@ const _VSettings = v.object({
     hideWithoutExerciseNotes: v.optional(v.boolean()),
   }),
   exercises: v.record(v.string(), v.optional(VCustomExercise)),
+  customMetricDefinitions: v.optional(v.array(VCustomMetricDefinition)),
   statsEnabled: VStatsEnabled,
   units: VUnit,
   lengthUnits: VLengthUnit,
