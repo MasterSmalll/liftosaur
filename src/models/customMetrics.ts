@@ -72,12 +72,11 @@ export function CustomMetrics_updateSet(
   if (!CustomMetrics_validate(definition, value)) {
     return set;
   }
-  const existingRir = set.customMetrics?.rir;
+  const previousRir = set.customMetrics?.rir;
   const previouslyDerivedRpe =
-    typeof existingRir === "number" &&
-    set.completedRpe != null &&
-    Math.abs(set.completedRpe - (10 - existingRir)) < 0.0001;
-
+    set.rpeDerivedFromRir === true &&
+    typeof previousRir === "number" &&
+    set.completedRpe === 10 - previousRir;
   const updated: ISet = {
     ...set,
     customMetrics: CustomMetrics_setValue(set.customMetrics, definition, value),
@@ -85,11 +84,10 @@ export function CustomMetrics_updateSet(
   if (definition.id === "rir") {
     if (value === undefined && previouslyDerivedRpe) {
       updated.completedRpe = undefined;
-    } else if (
-      typeof value === "number" &&
-      (set.completedRpe == null || previouslyDerivedRpe)
-    ) {
+      updated.rpeDerivedFromRir = false;
+    } else if (typeof value === "number" && (set.completedRpe == null || previouslyDerivedRpe)) {
       updated.completedRpe = 10 - value;
+      updated.rpeDerivedFromRir = true;
     }
   }
   return updated;
