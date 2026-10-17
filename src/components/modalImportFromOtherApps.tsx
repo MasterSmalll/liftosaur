@@ -4,7 +4,7 @@ import { Text } from "./primitives/text";
 import { GroupHeader } from "./groupHeader";
 import { MenuItemWrapper } from "./menuItem";
 import { IDispatch } from "../ducks/types";
-import { Thunk_importHevyData } from "../ducks/thunks";
+import { Thunk_importHevyData, Thunk_importMacroFactorData } from "../ducks/thunks";
 import { ISettings } from "../types";
 import { FileImport_pickFile } from "../utils/fileImport";
 
@@ -26,9 +26,19 @@ export function ModalImportFromOtherAppsContent(props: IModalImportFromOtherApps
     setTimeout(() => props.dispatch(Thunk_importHevyData(contents)), 50);
   }, [props.dispatch, props.onClose]);
 
+  const onUploadMacroFactor = useCallback(async () => {
+    const contents = await FileImport_pickFile("csv");
+    if (contents == null) return;
+    props.onClose();
+    setTimeout(() => props.dispatch(Thunk_importMacroFactorData(contents)), 50);
+  }, [props.dispatch, props.onClose]);
+
   return (
     <View>
       <GroupHeader size="large" name="Import history from other apps" />
+      <MenuItemWrapper name="Upload MacroFactor Workouts CSV" onClick={onUploadMacroFactor}>
+        <Text className="py-3">Upload MacroFactor Workouts CSV</Text>
+      </MenuItemWrapper>
       <MenuItemWrapper name="Upload CSV file from Hevy" onClick={onUploadHevy}>
         <Text className="py-3">Upload CSV file from Hevy</Text>
       </MenuItemWrapper>
