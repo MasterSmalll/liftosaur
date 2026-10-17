@@ -51,9 +51,19 @@ describe("Custom metrics", () => {
   it("derives RPE only when absent or previously derived", () => {
     const first = CustomMetrics_updateSet(set(), rir, 3);
     expect(first.completedRpe).to.equal(7);
+    expect(first.rpeDerivedFromRir).to.equal(true);
     const second = CustomMetrics_updateSet(first, rir, 2);
     expect(second.completedRpe).to.equal(8);
     expect(CustomMetrics_updateSet(second, rir, undefined).completedRpe).to.equal(undefined);
+  });
+
+  it("never replaces a manually entered RPE even when it coincides with the original RIR estimate", () => {
+    const original = { ...set(), completedRpe: 7 };
+    const first = CustomMetrics_updateSet(original, rir, 3);
+    expect(first.rpeDerivedFromRir).to.equal(undefined);
+    const changed = CustomMetrics_updateSet(first, rir, 2);
+    expect(changed.completedRpe).to.equal(7);
+    expect(changed.customMetrics?.rir).to.equal(2);
   });
 
   it("validates units and value bounds without erasing valid data", () => {
