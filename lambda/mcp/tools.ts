@@ -157,6 +157,80 @@ const EXERCISE_DATA_FIELD_SCHEMAS: Record<string, IMcpJsonSchema> = {
 };
 
 const mcpToolsWithoutOutputSchema: Omit<IMcpToolDef, "outputSchema">[] = [
+  // --- Fork: structured workout history and custom metrics ---
+  {
+    name: "get_structured_history",
+    description: "Read the user's full, typed Liftosaur workout records, including every exercise, work/warmup set, timestamps, loads, RIR/RPE provenance, notes and custom metric maps. Unlike get_history this returns JSON, not lossy Liftohistory text. Paginate with nextCursor; optionally include the current workout. Never infer missing fields.",
+    annotations: { title: "Read complete workout data", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: { type: ["string", "number"], description: "Maximum records (1-100, default 30)" },
+        cursor: { type: ["string", "number"], description: "Exclusive previous-page ID cursor" },
+        includeCurrent: { type: "boolean", description: "Include the current workout, if any" },
+      },
+    },
+  },
+  {
+    name: "list_custom_metrics",
+    description: "Read user-defined numeric, boolean and text metric definitions, including RIR, types, units and scope (set/exercise/workout). Values live in get_structured_history records.",
+    annotations: { title: "List custom metrics", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_training_analytics",
+    description: "Analyze ALL completed Liftosaur workouts. Returns total workouts, working sets, reps, duration, Liftosaur volume, graph points grouped by workout/week/month and an optional numeric custom metric trend. Filter by program, exercise or recent days. This aggregates from the real history rather than a cached note.",
+    annotations: { title: "Get workout analytics", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    inputSchema: {
+      type: "object",
+      properties: {
+        program: { type: "string", description: "Exact program name filter" },
+        exerciseKey: { type: "string", description: "Exercise key from structured history (e.g. squat_barbell)" },
+        days: { type: ["number", "string"], description: "Recent-day window counted from latest workout (1-36500); omit for all-time" },
+        grouping: { type: "string", enum: ["workout", "week", "month"] },
+        measure: { type: "string", enum: ["workouts", "sets", "reps", "minutes", "volume"] },
+        metricId: { type: "string", description: "Optional enabled numeric metric ID, e.g. rir" },
+      },
+    },
+  },
+  {
+    name: "upsert_custom_metric",
+    description: "Create or update a custom metric definition available in the Liftosaur fork's Settings. Changing the scope or kind of an existing metric is forbidden to preserve historical data. Required: stable id, name, scope and kind.",
+    annotations: { title: "Create or edit custom metric", readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Stable ID, e.g. tempo or pain-score (2-64 letters/numbers/hyphen/underscore, starts with lowercase letter)" },
+        name: { type: "string", description: "Human-readable metric name" },
+        scope: { type: "string", enum: ["set", "exercise", "workout"] },
+        kind: { type: "string", enum: ["number", "boolean", "text"] },
+        unit: { type: "string", description: "Unit, if relevant" },
+        min: { type: "number" },
+        max: { type: "number" },
+        disabled: { type: "boolean", description: "Hide without deleting recorded values" },
+      },
+      required: ["id", "name", "scope", "kind"],
+    },
+  },
+  {
+    name: "set_history_metric",
+    description: "Write an actual custom metric to an existing Liftosaur history record, scoped at workout, exercise entry or individual working/warmup set. Use get_structured_history to obtain exact recordId/entryId/setId; pass null to clear. For RIR, estimate RPE only if no manually reported RPE exists. Optional expectedUpdatedAt avoids overwriting a newer record.",
+    annotations: { title: "Record a custom metric", readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    inputSchema: {
+      type: "object",
+      properties: {
+        recordId: { type: ["string", "number"], description: "Existing history record ID" },
+        metricId: { type: "string", description: "Enabled custom metric identifier" },
+        entryId: { type: "string", description: "Required for exercise/set scope" },
+        setId: { type: "string", description: "Required for set scope" },
+        warmup: { type: "boolean", description: "True only when addressing an exercise warmup set" },
+        value: { type: ["number", "string", "boolean", "null"], description: "Value; null clears an existing value" },
+        expectedUpdatedAt: { type: ["number", "null"], description: "Optimistic concurrency guard (from get_structured_history)" },
+      },
+      required: ["recordId", "metricId", "value"],
+    },
+  },
+
   // --- History ---
   {
     name: "get_history",
