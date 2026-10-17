@@ -1675,7 +1675,9 @@ export function Progress_updateRpeInExercise(progress: IHistoryRecord, value?: n
   if (progress.amrapModal != null) {
     const { entryIndex, setIndex } = progress.amrapModal;
     const newValue = value != null ? Math.round(Math.min(10, Math.max(0, value)) / 0.5) * 0.5 : undefined;
-    return lf(progress).p("entries").i(entryIndex).p("sets").i(setIndex).p("completedRpe").set(newValue);
+    const updated = lf(progress).p("entries").i(entryIndex).p("sets").i(setIndex).p("completedRpe").set(newValue);
+    // A user-entered RPE always takes precedence over the RIR-derived estimate.
+    return lf(updated).p("entries").i(entryIndex).p("sets").i(setIndex).p("rpeDerivedFromRir").set(false);
   } else {
     return progress;
   }
