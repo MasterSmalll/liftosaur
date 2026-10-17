@@ -1822,7 +1822,7 @@ export interface IImportSession {
   vtype: "import_session";
   id: string;
   timestamp: number;
-  source: "hevy" | "liftosaurCsv";
+  source: "hevy" | "liftosaurCsv" | "macroFactor";
   historyRecordIds: number[];
   customExerciseIds: string[];
   workoutCount: number;
@@ -1831,7 +1831,7 @@ const _VImportSession = v.object({
   vtype: v.literal("import_session"),
   id: v.string(),
   timestamp: v.number(),
-  source: v.union([v.literal("hevy"), v.literal("liftosaurCsv")]),
+  source: v.union([v.literal("hevy"), v.literal("liftosaurCsv"), v.literal("macroFactor")]),
   historyRecordIds: v.array(v.number()),
   customExerciseIds: v.array(v.string()),
   workoutCount: v.number(),
