@@ -4,6 +4,7 @@ import { ActiveGraphContext, IActiveGraphContext } from "./activeGraphContext";
 import { Text } from "./primitives/text";
 import { GraphExercise } from "./graphExercise";
 import { CustomMetricGraph } from "./customMetricGraph";
+import { WorkoutHistoryDashboard } from "./workoutHistoryDashboard";
 import { CustomMetrics_definitions } from "../models/customMetrics";
 import { History_getGraphsAggregates } from "../models/history";
 import { ObjectUtils_keys } from "../utils/object";
@@ -155,7 +156,7 @@ export function ScreenGraphs(): JSX.Element {
     [visibleGraphs, stats.weight, stats.length, stats.percentage, settings]
   );
 
-  if (settings.graphs.graphs.length === 0 && numericMetrics.length === 0) {
+  if (settings.graphs.graphs.length === 0 && numericMetrics.length === 0 && history.length === 0) {
     return (
       <View className="p-8">
         <Text className="text-2xl font-bold text-center text-gray-600">
@@ -168,6 +169,7 @@ export function ScreenGraphs(): JSX.Element {
   return (
     <ActiveGraphContext.Provider value={activeGraphValue}>
       <View className="pt-8 pb-4">
+        <WorkoutHistoryDashboard history={history} settings={settings} />
         {preparedGraphs.map((entry, i) => {
           const { graph, exercise, collection } = entry;
           const id = `${graph.type}-${graph.id}-${i}`;
