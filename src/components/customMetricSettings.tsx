@@ -21,7 +21,7 @@ export function CustomMetricSettings(props: IProps): JSX.Element {
   const [scope, setScope] = useState<ICustomMetricScope>("set");
   const [kind, setKind] = useState<ICustomMetricKind>("number");
   const configured = props.settings.customMetricDefinitions ?? [];
-  const byId = new Map(DEFAULT_CUSTOM_METRICS.map((metric) => [metric.id, metric]));
+  const byId = new Map<string, ICustomMetricDefinition>(DEFAULT_CUSTOM_METRICS.map((metric) => [metric.id, metric]));
   for (const metric of configured) {
     byId.set(metric.id, metric);
   }
@@ -77,6 +77,12 @@ export function CustomMetricSettings(props: IProps): JSX.Element {
           <Text className="text-xs text-text-secondary mx-2">
             {definition.scope} · {definition.kind}{definition.unit ? ` · ${definition.unit}` : ""}
           </Text>
+          <MenuItemEditable
+            type="text"
+            name={`Unit for ${definition.name}`}
+            value={definition.unit ?? ""}
+            onChange={(next) => update({ ...definition, unit: next.trim() || undefined })}
+          />
           <MenuItemEditable
             type="boolean"
             name={`Enable ${definition.name}`}
