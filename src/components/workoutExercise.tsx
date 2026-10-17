@@ -18,6 +18,7 @@ import {
   IPrevExerciseData,
 } from "../models/history";
 import { LinkButton } from "./linkButton";
+import { Text } from "./primitives/text";
 import { CustomMetricFields } from "./customMetricFields";
 import { CustomMetrics_definitions, CustomMetrics_setValue } from "../models/customMetrics";
 import { CollectionUtils_sort } from "../utils/collection";
