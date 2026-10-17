@@ -44,6 +44,13 @@ import {
   ApiV1_updateMeasurement,
   ApiV1_deleteMeasurement,
 } from "../utils/apiv1Measurements";
+import {
+  ApiV1_getStructuredHistory,
+  ApiV1_getCustomMetricDefinitions,
+  ApiV1_getTrainingAnalytics,
+  ApiV1_upsertCustomMetricDefinition,
+  ApiV1_setHistoryCustomMetric,
+} from "../utils/apiv1CustomMetrics";
 import { IEither } from "../../src/utils/types";
 import { IMuscle, IExerciseKind } from "../../src/types";
 import * as v from "valibot";
@@ -181,6 +188,16 @@ export async function McpToolExecutor_execute(
   di: IDI
 ): Promise<IToolResult> {
   switch (toolName) {
+    case "get_structured_history":
+      return ApiV1_getStructuredHistory(userId, user, args, di);
+    case "list_custom_metrics":
+      return ApiV1_getCustomMetricDefinitions(user);
+    case "get_training_analytics":
+      return ApiV1_getTrainingAnalytics(userId, user, args, di);
+    case "upsert_custom_metric":
+      return ApiV1_upsertCustomMetricDefinition(user, args, deviceId, di);
+    case "set_history_metric":
+      return ApiV1_setHistoryCustomMetric(userId, user, args, deviceId, di);
     case "get_history":
       return ApiV1_getHistory(
         userId,
