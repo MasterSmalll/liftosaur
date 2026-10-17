@@ -41,6 +41,20 @@ describe("ImportUtils_findDuplicates", () => {
     expect(duplicates.size).to.equal(0);
   });
 
+  it("does not conflate different MacroFactor workouts on the same calendar day", () => {
+    const morning = { ...buildRecord(1, t), source: "macrofactor-workouts", dayName: "Strength A" };
+    const afternoon = { ...buildRecord(2, t), source: "macrofactor-workouts", dayName: "Strength B" };
+    const actualDuplicate = { ...buildRecord(3, t), source: "macrofactor-workouts", dayName: "Strength A" };
+    const matches = ImportUtils_findDuplicates([afternoon, actualDuplicate], [morning]);
+    expect(Array.from(matches)).to.eql([3]);
+  });
+
+  it("ignores arbitrary midnight matches between MacroFactor and timed workouts", () => {
+    const imported = { ...buildRecord(1, t), source: "macrofactor-workouts", dayName: "Strength A" };
+    const unrelated = buildRecord(99, t);
+    expect(ImportUtils_findDuplicates([imported], [unrelated]).size).to.equal(0);
+  });
+
   it("handles empty existing history", () => {
     const duplicates = ImportUtils_findDuplicates([buildRecord(1, t)], []);
     expect(duplicates.size).to.equal(0);
