@@ -789,7 +789,7 @@ describe("MCP", () => {
     });
     it("saves RIR and user-defined fields on a real historical set with provenance", async () => {
       const created = resultData(await call("create_history_record", {
-        text: "2025-03-01 10:00:00 +00:00 / exercises: {\\n  Squat / 3x5 100lb\\n}",
+        text: "2025-03-01 10:00:00 +00:00 / exercises: {\n  Squat / 3x5 100lb\n}",
       }));
       const firstPage = resultData(await call("get_structured_history", { limit: 10 }));
       const first = firstPage.records.find((r: any) => r.id === created.id);
