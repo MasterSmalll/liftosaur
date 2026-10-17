@@ -25,6 +25,8 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Generate required local and markdown files
+        run: npm run ensure:localdomain && npm run build:markdown
       - name: TypeScript typecheck
         run: npm run check
       - name: Custom metrics, MacroFactor, and dashboard tests
