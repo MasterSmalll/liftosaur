@@ -46,6 +46,7 @@ import {
 } from "../utils/apiv1Measurements";
 import {
   ApiV1_getStructuredHistory,
+  ApiV1_getBodyweightLoadProgression,
   ApiV1_getCustomMetricDefinitions,
   ApiV1_getTrainingAnalytics,
   ApiV1_upsertCustomMetricDefinition,
@@ -188,6 +189,8 @@ export async function McpToolExecutor_execute(
   di: IDI
 ): Promise<IToolResult> {
   switch (toolName) {
+    case "get_bodyweight_load_progression":
+      return ApiV1_getBodyweightLoadProgression(userId, user, args, di);
     case "get_structured_history":
       return ApiV1_getStructuredHistory(userId, user, args, di);
     case "list_custom_metrics":
