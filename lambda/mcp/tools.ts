@@ -157,6 +157,20 @@ const EXERCISE_DATA_FIELD_SCHEMAS: Record<string, IMcpJsonSchema> = {
 };
 
 const mcpToolsWithoutOutputSchema: Omit<IMcpToolDef, "outputSchema">[] = [
+  {
+    name: "get_bodyweight_load_progression",
+    description: "Read pull-up and dip weighted performance with added load, same-date real weigh-ins, MacroFactor trend estimates, and total body-plus-added weight when confirmed safe. Excludes kipping/assisted and never double-adds bodyweight to native sets with unknown load conventions. Accept IANA timeZone (e.g. Europe/Paris) and exerciseKey.",
+    annotations: { title: "Analyze pull-up/dip total load", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    inputSchema: {
+      type: "object",
+      properties: {
+        exerciseKey: { type: "string", description: "Optional exact exercise key, e.g. pullUp_bodyweight" },
+        timeZone: { type: "string", description: "Timezone of recorded weighing dates, e.g. Europe/Paris" },
+        limit: { type: ["number", "string"], description: "Maximum points from newest history (1-500, default 100)" },
+      },
+    },
+  },
+
   // --- Fork: structured workout history and custom metrics ---
   {
     name: "get_structured_history",
