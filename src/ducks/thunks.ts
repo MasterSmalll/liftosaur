@@ -1864,7 +1864,7 @@ export function Thunk_importHevyData(rawCsv: string): IThunk {
  *  Does not touch the measured scale/Apple Health measurements.
  */
 export function Thunk_importMacroFactorTrendWeight(rawCsv: string): IThunk {
-  return (dispatch, getState) => {
+  return async (dispatch, getState) => {
     let trend;
     try {
       trend = Bodyweight_parseMacroFactorTrend(rawCsv);
@@ -1878,7 +1878,7 @@ export function Thunk_importMacroFactorTrendWeight(rawCsv: string): IThunk {
     const merged = Array.from(existing.values()).sort((a, b) => a.date.localeCompare(b.date));
     updateState(
       dispatch,
-      [lb<IState>().p("storage").p("stats").pi("bodyweightTrend", []).set(merged)],
+      [lb<IState>().p("storage").p("stats").pi("bodyweightTrend", []).record(merged)],
       "Import MacroFactor estimated trend weight"
     );
     Dialog_alert(`Imported ${trend.length} trend-weight dates. Scale measurements remain unchanged.`);
