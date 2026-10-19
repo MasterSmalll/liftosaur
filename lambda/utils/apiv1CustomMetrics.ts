@@ -150,14 +150,18 @@ export async function ApiV1_getBodyweightLoadProgression(
   } catch {
     return err(400, "invalid_input", "Unknown IANA time zone");
   }
-  const history = await new UserDao(di).getHistoryByUserId(userId);
-  const result = Bodyweight_performance(history, user.storage.stats, user.storage.settings, { timeZone: zone })
+  const dao = new UserDao(di);
+  const [history, stats] = await Promise.all([
+    dao.getHistoryByUserId(userId),
+    dao.getStatsByUserId(userId),
+  ]);
+  const result = Bodyweight_performance(history, stats, user.storage.settings, { timeZone: zone })
     .filter((p) => params.exerciseKey == null || p.exerciseKey === params.exerciseKey);
   return ok({
     points: result.slice(-limit),
     totalPoints: result.length,
-    trendDays: user.storage.stats.bodyweightTrend?.length ?? 0,
-    scaleMeasurements: user.storage.stats.weight.weight?.length ?? 0,
+    trendDays: stats.bodyweightTrend?.length ?? 0,
+    scaleMeasurements: stats.weight.weight?.length ?? 0,
     semantics: "Recorded ballast and measured weight are kept separate. MacroFactor trend weight is estimated. Unverified native loads do not produce calculated total loads.",
   });
 }
