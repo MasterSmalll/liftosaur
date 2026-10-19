@@ -1756,13 +1756,27 @@ const _VSettingsMatches: IEquals<v.InferOutput<typeof _VSettings>, ISettings> = 
 void _VSettingsMatches;
 export const VSettings: v.GenericSchema<ISettings> = _VSettings;
 
+/** Estimated bodyweight from an external trend algorithm. Not a scale reading. */
+export interface IBodyweightTrendPoint {
+  date: string; // Calendar YYYY-MM-DD, not an invented workout timestamp
+  kg: number;
+  source: "macrofactor";
+}
+export const VBodyweightTrendPoint: v.GenericSchema<IBodyweightTrendPoint> = v.object({
+  date: v.pipe(v.string(), v.regex(/^\\d{4}-\\d{2}-\\d{2}$/)),
+  kg: v.pipe(v.number(), v.minValue(20), v.maxValue(500)),
+  source: v.literal("macrofactor"),
+});
+
 export interface IStats {
+  bodyweightTrend?: IBodyweightTrendPoint[];
   weight: IStatsWeight;
   length: IStatsLength;
   percentage: IStatsPercentage;
   health?: IStatsHealth;
 }
 const _VStats = v.object({
+  bodyweightTrend: v.optional(v.array(VBodyweightTrendPoint)),
   weight: VStatsWeight,
   length: VStatsLength,
   percentage: VStatsPercentage,
