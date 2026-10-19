@@ -92,7 +92,7 @@ export function BodyweightPerformanceGraph(props: IProps): JSX.Element {
           {filtered.slice(-20).reverse().map((p) => (
             <View key={p.workoutId} className="py-2 border-b border-border-neutral">
               <Text className="text-sm text-text-primary">
-                {p.date} · {p.reps} reps · +{format(toUnit(p.externalKg))} {unit} external load
+                {p.date} · {p.reps} reps · {p.loadSemantics === "external" ? "+" : ""}{format(toUnit(p.externalKg))} {unit} {p.loadSemantics === "external" ? "added load" : "recorded load (semantics unverified)"}
               </Text>
               <Text className="text-xs text-text-secondary">
                 {p.bodyweight.status === "measured"
