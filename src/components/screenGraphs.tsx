@@ -171,7 +171,7 @@ export function ScreenGraphs(): JSX.Element {
     <ActiveGraphContext.Provider value={activeGraphValue}>
       <View className="pt-8 pb-4">
         <WorkoutHistoryDashboard history={history} settings={settings} />
-        <BodyweightPerformanceGraph history={history} stats={stats} settings={settings} />
+        <BodyweightPerformanceGraph history={history} stats={stats} settings={settings} dispatch={dispatch} />
         {preparedGraphs.map((entry, i) => {
           const { graph, exercise, collection } = entry;
           const id = `${graph.type}-${graph.id}-${i}`;
