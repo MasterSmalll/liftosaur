@@ -7,7 +7,7 @@ import { useTrackClick } from "../utils/clickTracking";
 import { ActiveGraphContext, IActiveGraphContext } from "./activeGraphContext";
 import { IDispatch } from "../ducks/types";
 import { IHistoryRecord, ISettings, ISubscription, IHistoryEntry, IProgramState, IStats } from "../types";
-import { updateSettings } from "../models/state";
+import { updateSettings, updateProgress } from "../models/state";
 import { lb } from "lens-shmens";
 import { Exercise_toKey } from "../models/exercise";
 import {
@@ -18,6 +18,9 @@ import {
   IPrevExerciseData,
 } from "../models/history";
 import { LinkButton } from "./linkButton";
+import { Text } from "./primitives/text";
+import { CustomMetricFields } from "./customMetricFields";
+import { CustomMetrics_definitions, CustomMetrics_setValue } from "../models/customMetrics";
 import { CollectionUtils_sort } from "../utils/collection";
 import { IEvaluatedProgram, IEvaluatedProgramDay } from "../models/program";
 import { IByExercise } from "../pages/planner/plannerEvaluator";
@@ -186,6 +189,21 @@ function WorkoutExerciseInner(props: IWorkoutExerciseProps): JSX.Element {
           onTitleLayout={props.onTitleLayout}
         />
       </PerfProbeSubtree>
+      {props.isCurrentProgress && CustomMetrics_definitions(props.settings, "exercise").length > 0 && (
+        <View className="mx-4 mt-2">
+          <Text className="text-xs font-semibold text-text-secondary">Exercise Metrics</Text>
+          <CustomMetricFields
+            definitions={CustomMetrics_definitions(props.settings, "exercise")}
+            values={props.entry.customMetrics}
+            onChange={(definition, value) => updateProgress(
+              props.dispatch,
+              [lb<IHistoryRecord>().p("entries").i(props.entryIndex).pi("customMetrics", {})
+                .recordModify((metrics) => CustomMetrics_setValue(metrics, definition, value))],
+              `exercise-custom-metric-${definition.id}`
+            )}
+          />
+        </View>
+      )}
       <Animated.View layout={WorkoutLayoutTransition}>
         {((props.prevData?.count ?? 0) > 1 || showPrs) && (
           <View className="items-center mt-2">

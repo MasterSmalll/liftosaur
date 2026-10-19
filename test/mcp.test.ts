@@ -765,6 +765,79 @@ describe("MCP", () => {
     });
   });
 
+  describe("fork custom metrics and complete workout history", () => {
+    let token: string;
+    beforeEach(async () => {
+      token = await createOauthToken();
+    });
+    async function call(name: string, args: Record<string, unknown> = {}): Promise<any> {
+      const response = await handler(buildMcpEvent(toolCall(name, args), authHeaders(token)), ctx);
+      expect(response.statusCode).to.equal(200);
+      return parseBody(response).result;
+    }
+    function resultData(result: any): any {
+      expect(result.isError, result.content?.[0]?.text).to.be.undefined;
+      return JSON.parse(result.content[0].text);
+    }
+    it("advertises new structured data tools", async () => {
+      const response = await handler(buildMcpEvent(jsonRpc("tools/list")), ctx);
+      const names = parseBody(response).result.tools.map((t: any) => t.name);
+      expect(names).to.include.members([
+        "get_structured_history", "get_bodyweight_load_progression", "list_custom_metrics", "get_training_analytics",
+        "upsert_custom_metric", "set_history_metric",
+      ]);
+    });
+    it("saves RIR and user-defined fields on a real historical set with provenance", async () => {
+      const created = resultData(await call("create_history_record", {
+        text: "2025-03-01 10:00:00 +00:00 / exercises: {\n  Squat / 3x5 100lb\n}",
+      }));
+      const firstPage = resultData(await call("get_structured_history", { limit: 10 }));
+      const first = firstPage.records.find((r: any) => r.id === created.id);
+      expect(first).to.not.equal(undefined);
+      expect(first.entries[0].sets).to.have.length(3);
+      const entryId = first.entries[0].id;
+      const setId = first.entries[0].sets[0].id;
+
+      const initialMetrics = resultData(await call("list_custom_metrics"));
+      expect(initialMetrics.definitions.some((m: any) => m.id === "rir")).to.equal(true);
+
+      const custom = resultData(await call("upsert_custom_metric", {
+        id: "sleep-quality", name: "Sleep quality", scope: "workout",
+        kind: "number", unit: "/10", min: 0, max: 10,
+      }));
+      expect(custom.definition.id).to.equal("sleep-quality");
+
+      const bad = await call("set_history_metric", {
+        recordId: created.id, entryId, setId, metricId: "rir", value: 11,
+      });
+      expect(bad.isError).to.equal(true);
+
+      const changed = resultData(await call("set_history_metric", {
+        recordId: created.id, entryId, setId, metricId: "rir", value: 3,
+      }));
+      expect(changed.metricId).to.equal("rir");
+
+      resultData(await call("set_history_metric", {
+        recordId: created.id, metricId: "sleep-quality", value: 8,
+      }));
+      const latest = resultData(await call("get_structured_history", { limit: 10 })).records[0];
+      expect(latest.customMetrics["sleep-quality"]).to.equal(8);
+      expect(latest.entries[0].sets[0].customMetrics.rir).to.equal(3);
+      expect(latest.entries[0].sets[0].completedRpe).to.equal(7);
+      expect(latest.entries[0].sets[0].rpeDerivedFromRir).to.equal(true);
+
+      const analytics = resultData(await call("get_training_analytics", { metricId: "rir" }));
+      expect(analytics.totals.workouts).to.equal(1);
+      expect(analytics.totals.sets).to.equal(3);
+      expect(analytics.metricTimeline).to.have.length(1);
+      expect(analytics.metricTimeline[0][1]).to.equal(3);
+    });
+    it("keeps read tools behind the authenticated OAuth token", async () => {
+      const unauthenticated = await handler(buildMcpEvent(toolCall("get_structured_history")), ctx);
+      expect(unauthenticated.statusCode).to.equal(401);
+    });
+  });
+
   describe("playground", () => {
     let token: string;
 

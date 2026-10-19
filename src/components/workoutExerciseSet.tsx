@@ -19,6 +19,8 @@ import {
   IProgressMode,
   IWeight,
   IPercentage,
+  ICustomMetricDefinition,
+  ICustomMetricValue,
 } from "../types";
 import { n } from "../utils/math";
 import { updateProgress } from "../models/state";
@@ -31,6 +33,7 @@ import { IByExercise } from "../pages/planner/plannerEvaluator";
 import { EditProgressEntry_showEditSetModal } from "../models/editProgressEntry";
 import { useTrackClick } from "../utils/clickTracking";
 import { Reps_enforceCompletedSet } from "../models/set";
+import { CustomMetrics_updateSet } from "../models/customMetrics";
 import { Weight_eq } from "../models/weight";
 import { Exercise_getIsUnilateral } from "../models/exercise";
 import { FocusedInputFlush_flush } from "../utils/focusedInputFlush";
@@ -145,6 +148,7 @@ export interface IWorkoutExerciseSetBodyProps {
   onInputWeight: (value: IWeight | IPercentage | undefined) => void;
   onBlurWeight: (value: IWeight | IPercentage | undefined) => void;
   onCompleteSet: () => void;
+  onChangeMetric: (definition: ICustomMetricDefinition, value: ICustomMetricValue | undefined) => void;
   onEditSetTimer?: () => void;
   onOpenRoundingInfo: () => void;
   onToggleExpand?: () => void;
@@ -254,6 +258,16 @@ function WorkoutExerciseSetInner(props: IWorkoutExerciseSet): JSX.Element {
           "input-weight"
         );
       }
+    },
+    [dispatch, lbSet]
+  );
+  const onChangeMetric = useCallback(
+    (definition: ICustomMetricDefinition, value: ICustomMetricValue | undefined) => {
+      updateProgress(
+        dispatch,
+        [lbSet.recordModify((current) => CustomMetrics_updateSet(current, definition, value))],
+        `custom-metric-${definition.id}`
+      );
     },
     [dispatch, lbSet]
   );
@@ -384,6 +398,7 @@ function WorkoutExerciseSetInner(props: IWorkoutExerciseSet): JSX.Element {
     onInputWeight,
     onBlurWeight,
     onCompleteSet,
+    onChangeMetric,
     onEditSetTimer: props.type === "workout" ? onEditSetTimer : undefined,
     onOpenRoundingInfo,
     onToggleExpand: onToggleExpandProp ? onToggleExpand : undefined,

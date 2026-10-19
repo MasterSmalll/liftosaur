@@ -21,6 +21,7 @@ import { ImporterStorage } from "./importerStorage";
 import { ImporterProgram } from "./importerProgram";
 import { useNavOptions } from "../navigation/useNavOptions";
 import { GroupHeader } from "./groupHeader";
+import { CustomMetricSettings } from "./customMetricSettings";
 import { StringUtils_truncate } from "../utils/string";
 import { IconDiscord } from "./icons/iconDiscord";
 import { IconSpeaker } from "./icons/iconSpeaker";
@@ -208,6 +209,8 @@ function ScreenSettingsInner(props: IProps): JSX.Element {
         onClick={() => props.dispatch(Thunk_pushScreen("muscleGroups"))}
         shouldShowRightArrow={true}
       />
+      <GroupHeader name="Custom Metrics" topPadding={true} />
+      <CustomMetricSettings settings={props.settings} dispatch={props.dispatch} />
       <MenuItem name="Timers" onClick={() => props.dispatch(Thunk_pushScreen("timers"))} shouldShowRightArrow={true} />
       {props.settings.gyms.length > 1 && (
         <MenuItemEditable

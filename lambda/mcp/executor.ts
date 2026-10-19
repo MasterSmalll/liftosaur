@@ -44,6 +44,14 @@ import {
   ApiV1_updateMeasurement,
   ApiV1_deleteMeasurement,
 } from "../utils/apiv1Measurements";
+import {
+  ApiV1_getStructuredHistory,
+  ApiV1_getBodyweightLoadProgression,
+  ApiV1_getCustomMetricDefinitions,
+  ApiV1_getTrainingAnalytics,
+  ApiV1_upsertCustomMetricDefinition,
+  ApiV1_setHistoryCustomMetric,
+} from "../utils/apiv1CustomMetrics";
 import { IEither } from "../../src/utils/types";
 import { IMuscle, IExerciseKind } from "../../src/types";
 import * as v from "valibot";
@@ -153,6 +161,7 @@ const EXERCISE_DATA_ARG_PARSERS: Record<IWritableExerciseDataField, (raw: unknow
   muscleMultipliers: asJson,
   isUnilateral: asBool,
   volumeMultiplier: asNumber,
+  bodyweightContributions: asJson,
 };
 
 function parseExerciseDataArgs(args: Record<string, unknown>): {
@@ -167,7 +176,7 @@ function parseExerciseDataArgs(args: Record<string, unknown>): {
       }
     }
   } catch (e) {
-    return { input, error: err(400, "invalid_input", "equipment and muscleMultipliers must be valid JSON") };
+    return { input, error: err(400, "invalid_input", "equipment, muscleMultipliers and bodyweightContributions must be valid JSON") };
   }
   return { input };
 }
@@ -181,6 +190,18 @@ export async function McpToolExecutor_execute(
   di: IDI
 ): Promise<IToolResult> {
   switch (toolName) {
+    case "get_bodyweight_load_progression":
+      return ApiV1_getBodyweightLoadProgression(userId, user, args, di);
+    case "get_structured_history":
+      return ApiV1_getStructuredHistory(userId, user, args, di);
+    case "list_custom_metrics":
+      return ApiV1_getCustomMetricDefinitions(user);
+    case "get_training_analytics":
+      return ApiV1_getTrainingAnalytics(userId, user, args, di);
+    case "upsert_custom_metric":
+      return ApiV1_upsertCustomMetricDefinition(user, args, deviceId, di);
+    case "set_history_metric":
+      return ApiV1_setHistoryCustomMetric(userId, user, args, deviceId, di);
     case "get_history":
       return ApiV1_getHistory(
         userId,

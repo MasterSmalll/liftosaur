@@ -16,16 +16,31 @@ export function StatRowWrites_rows(stats: IStats): IStatDb[] {
     ObjectUtils_keys(byKey || {}).flatMap((key) =>
       (byKey?.[key] || []).map((s) => ({ ...s, name: `${s.timestamp}_${key}`, type }) as IStatDb)
     );
+  const trendRows: IStatDb[] = (stats.bodyweightTrend ?? []).map((p) => {
+    const timestamp = Date.parse(p.date + "T00:00:00Z");
+    return {
+      name: `${timestamp}_bodyweightTrend`,
+      type: "trend",
+      timestamp,
+      date: p.date,
+      source: p.source,
+      value: p.kg,
+    };
+  });
   return rows("length", stats.length)
     .concat(rows("weight", stats.weight))
     .concat(rows("percentage", stats.percentage))
-    .concat(rows("health", stats.health));
+    .concat(rows("health", stats.health))
+    .concat(trendRows);
 }
 
 export function StatRowWrites_plan(before: IStats, next: IStats, putUnchanged: boolean): IStatRowWrites {
   const nextRows = StatRowWrites_rows(next);
   // Stats without a `health` key (a pre-health client, an old backup) mean "unknown", so imported health rows stay
-  const beforeRows = StatRowWrites_rows(before).filter((row) => next.health != null || row.type !== "health");
+  const beforeRows = StatRowWrites_rows(before).filter((row) =>
+    (next.health != null || row.type !== "health") &&
+    (next.bodyweightTrend != null || row.type !== "trend")
+  );
   const diff = CollectionUtils_diffByKey(beforeRows, nextRows, (row) => row.name);
   return { puts: putUnchanged ? nextRows : diff.changed, deleteNames: diff.removedKeys };
 }

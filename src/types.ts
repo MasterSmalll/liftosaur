@@ -464,6 +464,35 @@ void _VCustomExerciseMatches;
 export const VCustomExercise: v.GenericSchema<ICustomExercise> = _VCustomExercise;
 export type IAllCustomExercises = Partial<Record<string, ICustomExercise>>;
 
+// Stable identifiers preserve custom metric history when a metric is renamed.
+export type ICustomMetricScope = "set" | "exercise" | "workout";
+export type ICustomMetricKind = "number" | "boolean" | "text";
+export type ICustomMetricValue = number | boolean | string;
+export type ICustomMetricValues = Record<string, ICustomMetricValue | undefined>;
+
+export interface ICustomMetricDefinition {
+  id: string;
+  name: string;
+  scope: ICustomMetricScope;
+  kind: ICustomMetricKind;
+  unit?: string;
+  min?: number;
+  max?: number;
+  disabled?: boolean;
+}
+export const VCustomMetricValue = v.union([v.number(), v.boolean(), v.string()]);
+export const VCustomMetricValues = v.record(v.string(), v.optional(VCustomMetricValue));
+export const VCustomMetricDefinition: v.GenericSchema<ICustomMetricDefinition> = v.object({
+  id: v.string(),
+  name: v.string(),
+  scope: v.union([v.literal("set"), v.literal("exercise"), v.literal("workout")]),
+  kind: v.union([v.literal("number"), v.literal("boolean"), v.literal("text")]),
+  unit: v.optional(v.string()),
+  min: v.optional(v.number()),
+  max: v.optional(v.number()),
+  disabled: v.optional(v.boolean()),
+});
+
 export interface ISet {
   vtype: "set";
   index: number;
@@ -488,6 +517,8 @@ export interface ISet {
   completedReps?: number;
   completedWeight?: IWeight;
   completedRpe?: number;
+  rpeDerivedFromRir?: boolean;
+  customMetrics?: ICustomMetricValues;
   completedSetTimer?: number;
   completedSetTimerLeft?: number;
   programSetIndex?: number;
@@ -516,6 +547,8 @@ const _VSet = v.object({
   completedReps: v.optional(v.number()),
   completedWeight: v.optional(VWeight),
   completedRpe: v.optional(v.number()),
+  rpeDerivedFromRir: v.optional(v.boolean()),
+  customMetrics: v.optional(VCustomMetricValues),
   completedSetTimer: v.optional(v.number()),
   completedSetTimerLeft: v.optional(v.number()),
   programSetIndex: v.optional(v.number()),
@@ -558,6 +591,7 @@ export interface IHistoryEntry {
   state?: IProgramState;
   vars?: IProgramState;
   notes?: string;
+  customMetrics?: ICustomMetricValues;
   changed?: boolean;
   isSuppressed?: boolean;
   superset?: string;
@@ -576,6 +610,7 @@ const _VHistoryEntry = v.object({
   state: v.optional(VProgramState),
   vars: v.optional(VProgramState),
   notes: v.optional(v.string()),
+  customMetrics: v.optional(VCustomMetricValues),
   changed: v.optional(v.boolean()),
   isSuppressed: v.optional(v.boolean()),
   superset: v.optional(v.string()),
@@ -1028,6 +1063,7 @@ export interface IHistoryRecord {
   // across devices — auto-advancing past an exercise (EMOM/Tabata) on one client moves the others too.
   currentEntryIndex?: number;
   notes?: string;
+  customMetrics?: ICustomMetricValues;
   updatedAt?: number;
   // Which client wrote this workout, from the X-Liftosaur-Client header on the public API. Absent for
   // anything logged in our own apps. Provenance can't be reconstructed later, so it's recorded at write time.
@@ -1093,6 +1129,7 @@ const _VHistoryRecord = v.object({
   ),
   currentEntryIndex: v.optional(v.number()),
   notes: v.optional(v.string()),
+  customMetrics: v.optional(VCustomMetricValues),
   updatedAt: v.optional(v.number()),
   source: v.optional(v.string()),
 });
@@ -1494,6 +1531,29 @@ export const VMuscleMultiplier: v.GenericSchema<IMuscleMultiplier> = _VMuscleMul
 // with `as IMuscle[]` after ObjectUtils_keys / Object.keys. (A union override here would
 // create real structural divergence between IExerciseDataValue and the schema's inferred
 // output, which would propagate through ISettings and break the IEquals check.)
+/** A configurable approximation, never a measurement of muscular force.
+ * Time-versioned so coefficient changes do not silently rewrite historical calculations. */
+export type IBodyweightContributionProvenance =
+  | "user-confirmed-macrofactor"
+  | "study-based-estimate"
+  | "user-estimate";
+export interface IBodyweightContributionRevision {
+  effectiveFrom: string; // Calendar YYYY-MM-DD
+  fraction: number; // Bodyweight contribution in [0, 1]
+  provenance: IBodyweightContributionProvenance;
+  reference?: string;
+}
+export const VBodyweightContributionRevision: v.GenericSchema<IBodyweightContributionRevision> = v.object({
+  effectiveFrom: v.pipe(v.string(), v.regex(/^\d{4}-\d{2}-\d{2}$/)),
+  fraction: v.pipe(v.number(), v.finite(), v.minValue(0), v.maxValue(1)),
+  provenance: v.union([
+    v.literal("user-confirmed-macrofactor"),
+    v.literal("study-based-estimate"),
+    v.literal("user-estimate"),
+  ]),
+  reference: v.optional(v.string()),
+});
+
 export interface IExerciseDataValue {
   rm1?: IWeight;
   rounding?: number;
@@ -1502,6 +1562,7 @@ export interface IExerciseDataValue {
   muscleMultipliers?: Record<string, number | undefined>;
   isUnilateral?: boolean;
   volumeMultiplier?: number;
+  bodyweightContributions?: IBodyweightContributionRevision[];
 }
 const _VExerciseDataValue = v.object({
   rm1: v.optional(VWeight),
@@ -1511,6 +1572,7 @@ const _VExerciseDataValue = v.object({
   muscleMultipliers: v.optional(v.record(v.string(), v.optional(v.number()))),
   isUnilateral: v.optional(v.boolean()),
   volumeMultiplier: v.optional(v.number()),
+  bodyweightContributions: v.optional(v.array(VBodyweightContributionRevision)),
 });
 const _VExerciseDataValueMatches: IEquals<v.InferOutput<typeof _VExerciseDataValue>, IExerciseDataValue> = true;
 void _VExerciseDataValueMatches;
@@ -1631,6 +1693,7 @@ export interface ISettings {
     hideWithoutExerciseNotes?: boolean;
   };
   exercises: Record<string, ICustomExercise | undefined>;
+  customMetricDefinitions?: ICustomMetricDefinition[];
   statsEnabled: IStatsEnabled;
   units: IUnit;
   lengthUnits: ILengthUnit;
@@ -1682,6 +1745,7 @@ const _VSettings = v.object({
     hideWithoutExerciseNotes: v.optional(v.boolean()),
   }),
   exercises: v.record(v.string(), v.optional(VCustomExercise)),
+  customMetricDefinitions: v.optional(v.array(VCustomMetricDefinition)),
   statsEnabled: VStatsEnabled,
   units: VUnit,
   lengthUnits: VLengthUnit,
@@ -1717,13 +1781,27 @@ const _VSettingsMatches: IEquals<v.InferOutput<typeof _VSettings>, ISettings> = 
 void _VSettingsMatches;
 export const VSettings: v.GenericSchema<ISettings> = _VSettings;
 
+/** Estimated bodyweight from an external trend algorithm. Not a scale reading. */
+export interface IBodyweightTrendPoint {
+  date: string; // Calendar YYYY-MM-DD, not an invented workout timestamp
+  kg: number;
+  source: "macrofactor";
+}
+export const VBodyweightTrendPoint: v.GenericSchema<IBodyweightTrendPoint> = v.object({
+  date: v.pipe(v.string(), v.regex(/^\d{4}-\d{2}-\d{2}$/)),
+  kg: v.pipe(v.number(), v.minValue(20), v.maxValue(500)),
+  source: v.literal("macrofactor"),
+});
+
 export interface IStats {
+  bodyweightTrend?: IBodyweightTrendPoint[];
   weight: IStatsWeight;
   length: IStatsLength;
   percentage: IStatsPercentage;
   health?: IStatsHealth;
 }
 const _VStats = v.object({
+  bodyweightTrend: v.optional(v.array(VBodyweightTrendPoint)),
   weight: VStatsWeight,
   length: VStatsLength,
   percentage: VStatsPercentage,
@@ -1783,7 +1861,7 @@ export interface IImportSession {
   vtype: "import_session";
   id: string;
   timestamp: number;
-  source: "hevy" | "liftosaurCsv";
+  source: "hevy" | "liftosaurCsv" | "macroFactor";
   historyRecordIds: number[];
   customExerciseIds: string[];
   workoutCount: number;
@@ -1792,7 +1870,7 @@ const _VImportSession = v.object({
   vtype: v.literal("import_session"),
   id: v.string(),
   timestamp: v.number(),
-  source: v.union([v.literal("hevy"), v.literal("liftosaurCsv")]),
+  source: v.union([v.literal("hevy"), v.literal("liftosaurCsv"), v.literal("macroFactor")]),
   historyRecordIds: v.array(v.number()),
   customExerciseIds: v.array(v.string()),
   workoutCount: v.number(),

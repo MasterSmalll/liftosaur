@@ -3,6 +3,10 @@ import { View, Pressable } from "react-native";
 import { ActiveGraphContext, IActiveGraphContext } from "./activeGraphContext";
 import { Text } from "./primitives/text";
 import { GraphExercise } from "./graphExercise";
+import { CustomMetricGraph } from "./customMetricGraph";
+import { WorkoutHistoryDashboard } from "./workoutHistoryDashboard";
+import { BodyweightPerformanceGraph } from "./bodyweightPerformanceGraph";
+import { CustomMetrics_definitions } from "../models/customMetrics";
 import { History_getGraphsAggregates } from "../models/history";
 import { ObjectUtils_keys } from "../utils/object";
 import { IScreenMuscle } from "../types";
@@ -41,6 +45,7 @@ export function ScreenGraphs(): JSX.Element {
 
   const { isWithBodyweight, isSameXAxis, isWithOneRm, isWithProgramLines } = settings.graphsSettings;
   const hasBodyweight = settings.graphs.graphs.some((g) => g.id === "weight");
+  const numericMetrics = CustomMetrics_definitions(settings).filter((metric) => metric.kind === "number");
 
   const { muscleGroupsData, programChangeTimes } = useTimedMemo(
     "screenGraphs.graphsAggregates",
@@ -152,7 +157,7 @@ export function ScreenGraphs(): JSX.Element {
     [visibleGraphs, stats.weight, stats.length, stats.percentage, settings]
   );
 
-  if (settings.graphs.graphs.length === 0) {
+  if (settings.graphs.graphs.length === 0 && numericMetrics.length === 0 && history.length === 0) {
     return (
       <View className="p-8">
         <Text className="text-2xl font-bold text-center text-gray-600">
@@ -165,6 +170,8 @@ export function ScreenGraphs(): JSX.Element {
   return (
     <ActiveGraphContext.Provider value={activeGraphValue}>
       <View className="pt-8 pb-4">
+        <WorkoutHistoryDashboard history={history} settings={settings} />
+        <BodyweightPerformanceGraph history={history} stats={stats} settings={settings} dispatch={dispatch} />
         {preparedGraphs.map((entry, i) => {
           const { graph, exercise, collection } = entry;
           const id = `${graph.type}-${graph.id}-${i}`;
@@ -254,6 +261,16 @@ export function ScreenGraphs(): JSX.Element {
             return null;
           }
         })}
+        {numericMetrics.length > 0 && (
+          <View className="mx-4 mt-4 mb-2">
+            <Text className="text-xl font-semibold mb-3">Custom Metrics</Text>
+            {numericMetrics.map((metric) => (
+              <View key={metric.id} className="mb-6">
+                <CustomMetricGraph metric={metric} history={history} settings={settings} />
+              </View>
+            ))}
+          </View>
+        )}
       </View>
     </ActiveGraphContext.Provider>
   );

@@ -99,9 +99,33 @@ export function ImportUtils_summarize(result: IImportResult, existingHistory: IH
 const duplicateToleranceMs = 60 * 1000;
 
 export function ImportUtils_findDuplicates(records: IHistoryRecord[], existingHistory: IHistoryRecord[]): Set<number> {
-  const existingStartTimes = existingHistory.map((r) => r.startTime).sort((a, b) => a - b);
+  const existingIds = new Set(existingHistory.map((r) => r.id));
+  // MacroFactor's calendar-only export anchors workouts at midnight, so the normal
+  // ±1-minute comparison would incorrectly merge different sessions on the same date.
+  const timedExisting = existingHistory.filter((record) => record.source !== "macrofactor-workouts");
+  const existingStartTimes = timedExisting.map((record) => record.startTime).sort((a, b) => a - b);
   const duplicates = new Set<number>();
   for (const record of records) {
+    if (existingIds.has(record.id)) {
+      duplicates.add(record.id);
+      continue;
+    }
+    if (record.source === "macrofactor-workouts") {
+      if (existingHistory.some((existing) =>
+        existing.source === "macrofactor-workouts" &&
+        existing.date.slice(0, 10) === record.date.slice(0, 10) &&
+        existing.dayName === record.dayName &&
+        existing.entries.length === record.entries.length &&
+        existing.entries.every((entry, i) =>
+          entry.exercise.id === record.entries[i]?.exercise.id &&
+          entry.sets.length === record.entries[i]?.sets.length &&
+          entry.warmupSets.length === record.entries[i]?.warmupSets.length
+        )
+      )) {
+        duplicates.add(record.id);
+      }
+      continue;
+    }
     let lo = 0;
     let hi = existingStartTimes.length - 1;
     while (lo <= hi) {

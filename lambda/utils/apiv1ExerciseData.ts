@@ -1,7 +1,7 @@
 import * as v from "valibot";
 import { UserDao, ILimitedUserDao } from "../dao/userDao";
 import { IDI } from "./di";
-import { IExerciseDataValue, ISettings, VExerciseDataValue, VMuscle } from "../../src/types";
+import { IExerciseDataValue, ISettings, VExerciseDataValue, VBodyweightContributionRevision, VMuscle } from "../../src/types";
 import { Weight_print } from "../../src/models/weight";
 import { Exercise_fromKey, Exercise_toKey, Exercise_find } from "../../src/models/exercise";
 import { Equipment_isBuiltIn } from "../../src/models/equipment";
@@ -80,6 +80,8 @@ const VExerciseDataUpdateInput = v.object({
       )
     )
   ),
+  // Explicit, provenance-tagged date revisions. Null removes the configuration.
+  bodyweightContributions: v.optional(nullable(v.pipe(v.array(VBodyweightContributionRevision), v.maxLength(50)))),
 });
 
 export type IExerciseDataUpdateInput = v.InferOutput<typeof VExerciseDataUpdateInput>;
@@ -97,6 +99,7 @@ const EXERCISE_DATA_FIELD_POLICY = {
   muscleMultipliers: "writable",
   isUnilateral: "writable",
   volumeMultiplier: "writable",
+  bodyweightContributions: "writable",
 } as const satisfies Record<keyof IExerciseDataValue, IExerciseDataFieldPolicy>;
 
 export type IWritableExerciseDataField = {
@@ -224,6 +227,7 @@ function applyExerciseDataInput(
     muscleMultipliers: resolve(input.muscleMultipliers, base.muscleMultipliers as Record<string, number> | undefined),
     isUnilateral: resolve(input.isUnilateral, base.isUnilateral),
     volumeMultiplier: resolve(input.volumeMultiplier, base.volumeMultiplier),
+    bodyweightContributions: resolve(input.bodyweightContributions, base.bodyweightContributions),
   };
 
   // Drop undefined keys so cleared fields don't linger as `key: undefined` in storage.
@@ -253,6 +257,7 @@ interface IExerciseDataResponse {
   muscleMultipliers?: Record<string, number | undefined>;
   isUnilateral?: boolean;
   volumeMultiplier?: number;
+  bodyweightContributions?: IExerciseDataValue["bodyweightContributions"];
 }
 
 function formatEquipmentOverride(
@@ -292,6 +297,7 @@ function formatExerciseData(key: string, d: IExerciseDataValue, settings: ISetti
     muscleMultipliers: d.muscleMultipliers,
     isUnilateral: d.isUnilateral,
     volumeMultiplier: d.volumeMultiplier,
+    bodyweightContributions: d.bodyweightContributions,
   };
 }
 

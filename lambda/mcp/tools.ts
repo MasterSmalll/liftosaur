@@ -154,9 +154,112 @@ const EXERCISE_DATA_FIELD_SCHEMAS: Record<string, IMcpJsonSchema> = {
     description:
       "Multiplier applied to this exercise's volume/total-weight (not to prescribed weights), clamped to 1-10. Set to 2 for exercises loaded with two dumbbells simultaneously (e.g. dumbbell shoulder press), where the displayed weight is per-dumbbell. null clears the override.",
   },
+  bodyweightContributions: {
+    type: ["array", "null"],
+    description:
+      "Versioned, exercise-specific bodyweight resistance coefficients. Replaces the entire list; each item needs effectiveFrom (YYYY-MM-DD), fraction (0-1) and provenance (user-estimate, study-based-estimate or user-confirmed-macrofactor), plus an optional reference. No coefficient is assumed by default. Null clears all revisions.",
+    items: {
+      type: "object",
+      properties: {
+        effectiveFrom: { type: "string", description: "Date from which the coefficient is valid, YYYY-MM-DD" },
+        fraction: { type: "number", description: "Bodyweight resistance fraction from 0 to 1" },
+        provenance: { type: "string", enum: ["user-estimate", "study-based-estimate", "user-confirmed-macrofactor"] },
+        reference: { type: "string", description: "Optional source or explanation" },
+      },
+      required: ["effectiveFrom", "fraction", "provenance"],
+    },
+  },
 };
 
 const mcpToolsWithoutOutputSchema: Omit<IMcpToolDef, "outputSchema">[] = [
+  {
+    name: "get_bodyweight_load_progression",
+    description: "Read pull-up and dip weighted performance with recorded external load, measured/estimated bodyweight, statically supported mass, and coefficient-based equivalent resistance when verified. Excludes kipping/assisted and never double-adds bodyweight to native sets with unknown load conventions. Accept IANA timeZone (e.g. Europe/Paris) and exerciseKey.",
+    annotations: { title: "Analyze pull-up/dip total load", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    inputSchema: {
+      type: "object",
+      properties: {
+        exerciseKey: { type: "string", description: "Optional exact exercise key, e.g. pullUp_bodyweight" },
+        timeZone: { type: "string", description: "Timezone of recorded weighing dates, e.g. Europe/Paris" },
+        limit: { type: ["number", "string"], description: "Maximum points from newest history (1-500, default 100)" },
+      },
+    },
+  },
+
+  // --- Fork: structured workout history and custom metrics ---
+  {
+    name: "get_structured_history",
+    description: "Read the user's full, typed Liftosaur workout records, including every exercise, work/warmup set, timestamps, loads, RIR/RPE provenance, notes and custom metric maps. Unlike get_history this returns JSON, not lossy Liftohistory text. Paginate with nextCursor; optionally include the current workout. Never infer missing fields.",
+    annotations: { title: "Read complete workout data", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: { type: ["string", "number"], description: "Maximum records (1-100, default 30)" },
+        cursor: { type: ["string", "number"], description: "Exclusive previous-page ID cursor" },
+        includeCurrent: { type: "boolean", description: "Include the current workout, if any" },
+      },
+    },
+  },
+  {
+    name: "list_custom_metrics",
+    description: "Read user-defined numeric, boolean and text metric definitions, including RIR, types, units and scope (set/exercise/workout). Values live in get_structured_history records.",
+    annotations: { title: "List custom metrics", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_training_analytics",
+    description: "Analyze ALL completed Liftosaur workouts. Returns total workouts, working sets, reps, duration, Liftosaur volume, graph points grouped by workout/week/month and an optional numeric custom metric trend. Filter by program, exercise or recent days. This aggregates from the real history rather than a cached note.",
+    annotations: { title: "Get workout analytics", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    inputSchema: {
+      type: "object",
+      properties: {
+        program: { type: "string", description: "Exact program name filter" },
+        exerciseKey: { type: "string", description: "Exercise key from structured history (e.g. squat_barbell)" },
+        days: { type: ["number", "string"], description: "Recent-day window counted from latest workout (1-36500); omit for all-time" },
+        grouping: { type: "string", enum: ["workout", "week", "month"] },
+        measure: { type: "string", enum: ["workouts", "sets", "reps", "minutes", "volume"] },
+        metricId: { type: "string", description: "Optional enabled numeric metric ID, e.g. rir" },
+      },
+    },
+  },
+  {
+    name: "upsert_custom_metric",
+    description: "Create or update a custom metric definition available in the Liftosaur fork's Settings. Changing the scope or kind of an existing metric is forbidden to preserve historical data. Required: stable id, name, scope and kind.",
+    annotations: { title: "Create or edit custom metric", readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Stable ID, e.g. tempo or pain-score (2-64 letters/numbers/hyphen/underscore, starts with lowercase letter)" },
+        name: { type: "string", description: "Human-readable metric name" },
+        scope: { type: "string", enum: ["set", "exercise", "workout"] },
+        kind: { type: "string", enum: ["number", "boolean", "text"] },
+        unit: { type: "string", description: "Unit, if relevant" },
+        min: { type: "number" },
+        max: { type: "number" },
+        disabled: { type: "boolean", description: "Hide without deleting recorded values" },
+      },
+      required: ["id", "name", "scope", "kind"],
+    },
+  },
+  {
+    name: "set_history_metric",
+    description: "Write an actual custom metric to an existing Liftosaur history record, scoped at workout, exercise entry or individual working/warmup set. Use get_structured_history to obtain exact recordId/entryId/setId; pass null to clear. For RIR, estimate RPE only if no manually reported RPE exists. Optional expectedUpdatedAt avoids overwriting a newer record.",
+    annotations: { title: "Record a custom metric", readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    inputSchema: {
+      type: "object",
+      properties: {
+        recordId: { type: ["string", "number"], description: "Existing history record ID" },
+        metricId: { type: "string", description: "Enabled custom metric identifier" },
+        entryId: { type: "string", description: "Required for exercise/set scope" },
+        setId: { type: "string", description: "Required for set scope" },
+        warmup: { type: "boolean", description: "True only when addressing an exercise warmup set" },
+        value: { type: ["number", "string", "boolean", "null"], description: "Value; null clears an existing value" },
+        expectedUpdatedAt: { type: ["number", "null"], description: "Optimistic concurrency guard (from get_structured_history)" },
+      },
+      required: ["recordId", "metricId", "value"],
+    },
+  },
+
   // --- History ---
   {
     name: "get_history",
@@ -637,7 +740,7 @@ const mcpToolsWithoutOutputSchema: Omit<IMcpToolDef, "outputSchema">[] = [
   {
     name: "list_exercise_data",
     description:
-      "List all per-exercise settings the user has customized (1 rep max, weight rounding, per-gym equipment overrides, notes, muscle overrides, unilateral flag). Each entry is keyed by an exercise key: a built-in exercise id joined with its equipment by '_' (e.g. 'squat_barbell', 'benchPress_barbell'), or a custom exercise id. Exercises without any customization don't appear here — that's expected; their values fall back to defaults. Use this to discover the exact keys already in use before writing with set_exercise_data.",
+      "List all per-exercise settings the user has customized (1 rep max, weight rounding, per-gym equipment overrides, notes, muscle overrides, unilateral flag, and bodyweight contribution revisions). Each entry is keyed by an exercise key: a built-in exercise id joined with its equipment by '_' (e.g. 'squat_barbell', 'benchPress_barbell'), or a custom exercise id. Exercises without any customization don't appear here — that's expected; their values fall back to defaults. Use this to discover the exact keys already in use before writing with set_exercise_data.",
     annotations: { title: "List exercise settings", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     inputSchema: { type: "object", properties: {} },
   },
@@ -661,7 +764,7 @@ const mcpToolsWithoutOutputSchema: Omit<IMcpToolDef, "outputSchema">[] = [
   {
     name: "set_exercise_data",
     description:
-      "Set (upsert) per-exercise settings for an exercise key like 'squat_barbell' or 'benchPress_barbell'. Use this to set a user's 1 rep max (rm1), weight rounding, per-gym equipment overrides, notes, muscle overrides, or the unilateral flag. Only provided fields change; omitted fields keep their current values; pass null for a field to clear it (revert to default). The key's exercise must exist (built-in id from list_exercises, joined with its equipment by '_', or a custom exercise id). Prefer the equipment-qualified key that matches how the user trains — a bare built-in id only matches the no-equipment variant and won't affect normal barbell/dumbbell entries.",
+      "Set (upsert) per-exercise settings for an exercise key like 'squat_barbell' or 'benchPress_barbell'. Use this to set a user's 1 rep max (rm1), weight rounding, per-gym equipment overrides, notes, muscle overrides, the unilateral flag, or date-versioned bodyweight contribution percentages. Only provided fields change; omitted fields keep their current values; pass null for a field to clear it (revert to default). The key's exercise must exist (built-in id from list_exercises, joined with its equipment by '_', or a custom exercise id). Prefer the equipment-qualified key that matches how the user trains — a bare built-in id only matches the no-equipment variant and won't affect normal barbell/dumbbell entries.",
     annotations: { title: "Set exercise settings", readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     inputSchema: {
       type: "object",

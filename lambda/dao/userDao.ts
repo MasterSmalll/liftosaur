@@ -130,11 +130,13 @@ export interface IStatDb {
   // Plain number for "health" rows (sleep minutes / kcal / grams), unit-tagged object for the rest.
   value: IWeight | ILength | IPercentage | number;
   timestamp: number;
-  type: "length" | "weight" | "percentage" | "health";
+  type: "length" | "weight" | "percentage" | "health" | "trend";
   updatedAt?: number;
   hidden?: boolean;
   appleUuid?: string;
   googleUuid?: string;
+  date?: string;
+  source?: "macrofactor";
 }
 
 // Maps an outdated client storage version to the server version it's safe to sync against anyway.
@@ -1216,9 +1218,18 @@ function convertStatsFromDb(statsDb: IStatDb[]): IStats {
     length: Partial<Record<string, unknown[]>>;
     percentage: Partial<Record<string, unknown[]>>;
     health: Partial<Record<string, unknown[]>>;
+    bodyweightTrend: { date: string; kg: number; source: "macrofactor" }[];
   }>(
     (memo, statDb) => {
       const type = statDb.type;
+      if (type === "trend") {
+        const day = statDb.date ?? new Date(statDb.timestamp).toISOString().slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(day) && typeof statDb.value === "number" &&
+            Number.isFinite(statDb.value) && statDb.value >= 20 && statDb.value <= 500) {
+          memo.bodyweightTrend.push({ date: day, kg: statDb.value, source: "macrofactor" });
+        }
+        return memo;
+      }
       const name = statDb.name.split("_")[1];
       memo[type][name] = memo[type][name] || [];
       // The sync write paths spread the whole client value into the row, so reconstruction must hand the
@@ -1238,6 +1249,6 @@ function convertStatsFromDb(statsDb: IStatDb[]): IStats {
       memo[type][name]!.push(stat);
       return memo;
     },
-    { weight: {}, length: {}, percentage: {}, health: {} }
+    { weight: {}, length: {}, percentage: {}, health: {}, bodyweightTrend: [] }
   );
 }
