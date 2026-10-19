@@ -1,4 +1,4 @@
-import { IBodyweightTrendPoint, IHistoryRecord, ISettings, IStats, IStatsWeightValue } from "../types";
+import { IBodyweightTrendPoint, IBodyweightContributionRevision, IHistoryRecord, ISettings, IStats, IStatsWeightValue } from "../types";
 import { Weight_convertTo } from "./weight";
 import { Exercise_get } from "./exercise";
 
@@ -17,7 +17,12 @@ export interface IBodyweightPerformance {
   reps: number;
   externalKg: number;
   bodyweight: IBodyweightEvidence;
+  /** Static mass supported for an unassisted hanging movement, where semantics are verified. */
   totalKg?: number;
+  /** Estimated per-rep resistance; NOT measured muscular force. */
+  equivalentKg?: number;
+  /** Coefficient version applicable on this workout date; absent means unverified. */
+  contribution?: IBodyweightContributionRevision;
   /** Imported loads are external; native loads need a documented per-exercise interpretation. */
   loadSemantics: "external" | "unverified";
 }
@@ -87,6 +92,37 @@ export function Bodyweight_forWorkout(
     : { status: "unknown", date };
 }
 
+/** Resolve the latest explicitly configured coefficient effective on the workout date.
+ * No coefficient is guessed from third-party anecdotes or a different exercise.
+ */
+export function Bodyweight_contributionForWorkout(
+  exerciseKey: string,
+  date: string,
+  settings: ISettings
+): IBodyweightContributionRevision | undefined {
+  if (!validDate(date)) return undefined;
+  const list = settings.exerciseData[exerciseKey]?.bodyweightContributions ?? [];
+  return list
+    .filter((r) =>
+      validDate(r.effectiveFrom) && r.effectiveFrom <= date &&
+      Number.isFinite(r.fraction) && r.fraction >= 0 && r.fraction <= 1
+    )
+    .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0];
+}
+
+/** Coefficient-based resistance estimate, never an estimate of muscle or joint forces.
+ * Assistance should be recorded separately and is not silently treated as negative ballast.
+ */
+export function Bodyweight_equivalentResistance(
+  externalKg: number,
+  bodyweightKg: number,
+  fraction: number
+): number | undefined {
+  if (![externalKg, bodyweightKg, fraction].every(Number.isFinite) ||
+      externalKg < 0 || bodyweightKg <= 0 || fraction < 0 || fraction > 1) return undefined;
+  return externalKg + bodyweightKg * fraction;
+}
+
 function supportedMovement(id: string, name: string): boolean {
   if (/kipping|assist|banded/i.test(id + " " + name)) return false;
   if (id === "pullUp") return true;
@@ -111,6 +147,8 @@ export function Bodyweight_performance(
     const external = macroFactorExternalLoad(record);
     for (const entry of record.entries) {
       const name = Exercise_get(entry.exercise, settings.exercises).name;
+      const exerciseKey = entry.exercise.id + "_" + (entry.exercise.equipment ?? "none");
+      const contribution = Bodyweight_contributionForWorkout(exerciseKey, date, settings);
       if (!supportedMovement(entry.exercise.id, name)) continue;
       for (const set of entry.sets) {
         if (!set.isCompleted && set.completedReps == null) continue;
@@ -123,15 +161,20 @@ export function Bodyweight_performance(
         points.push({
           workoutId: record.id,
           date,
-          exerciseKey: entry.exercise.id + "_" + (entry.exercise.equipment ?? "none"),
+          exerciseKey,
           exerciseName: name,
           setId: set.id,
           reps,
           externalKg,
           bodyweight: weight,
           loadSemantics: external ? "external" : "unverified",
-          // Never double count when the native load could already include bodyweight.
+          // The full supported mass and coefficient-adjusted resistance are DIFFERENT quantities.
+          // Unknown native loading conventions must not produce either number.
           ...(external && weight.status !== "unknown" ? { totalKg: externalKg + weight.kg } : {}),
+          ...(contribution ? { contribution } : {}),
+          ...(external && weight.status !== "unknown" && contribution
+            ? { equivalentKg: Bodyweight_equivalentResistance(externalKg, weight.kg, contribution.fraction) }
+            : {}),
         });
       }
     }
