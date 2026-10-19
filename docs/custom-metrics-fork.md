@@ -103,3 +103,36 @@ are not converted into huge running durations.
 - **Do not** connect an experimental fork directly to the official account in a way
   that can overwrite or silently discard unknown custom fields.
 - Native iPhone and Apple Watch builds are out of scope for the first phase.
+
+## Bodyweight-aware pull-up/dip performance (experimental)
+
+In **Graphs → Pull-ups and dips — total load**, the fork offers a per-exercise
+comparison of the heaviest completed working set each session:
+- External added load in kg/lb, stored unchanged.
+- Historical measured bodyweight, only if a real weigh-in exists on that calendar day.
+- Historical *trend-estimated* bodyweight, stored separately in
+  `stats.bodyweightTrend` with `source: "macrofactor"`.
+- Computed system load (`measured/estimated bodyweight + added load`) with explicit
+  provenance. This is an approximate mechanical metric, not an estimate of muscle force.
+
+The model will **not** add bodyweight to an unclassified native Liftosaur set load.
+The historical MacroFactor imports have explicit external-load semantics, but native
+sets may use weights that already include bodyweight. Unknown conventions remain
+unclassified until reviewed. Assisted/kipping sets are intentionally excluded from
+ordinary weighted pull-up/dip progression graphs.
+
+### How to import MacroFactor Trend Weight without duplicating weigh-ins
+
+The original MacroFactor nutrition XLSX contains a tab with `Date` and
+`Trend Weight (kg)`. Export **that tab alone** as a CSV file, then choose
+**Import history from other apps → Import MacroFactor Trend Weight CSV (estimated)**.
+
+The importer requires those two columns; it validates dates, 20–500 kg bounds,
+and duplicate dates, then stores estimated points into the fork's dedicated
+`stats.bodyweightTrend` series. It **does not** write to `stats.weight.weight`
+or alter Apple Health/scale measurements. Re-importing the same dates replaces
+only the corresponding estimated trend entries.
+
+No user's personal weight data is committed to this public GitHub repository.
+No private trend data is uploaded to the official Liftosaur service. This feature
+will become usable after the fork is built, hosted, and migrated safely.
