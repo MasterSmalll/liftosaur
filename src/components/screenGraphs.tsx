@@ -5,6 +5,7 @@ import { Text } from "./primitives/text";
 import { GraphExercise } from "./graphExercise";
 import { CustomMetricGraph } from "./customMetricGraph";
 import { WorkoutHistoryDashboard } from "./workoutHistoryDashboard";
+import { BodyweightPerformanceGraph } from "./bodyweightPerformanceGraph";
 import { CustomMetrics_definitions } from "../models/customMetrics";
 import { History_getGraphsAggregates } from "../models/history";
 import { ObjectUtils_keys } from "../utils/object";
@@ -170,6 +171,7 @@ export function ScreenGraphs(): JSX.Element {
     <ActiveGraphContext.Provider value={activeGraphValue}>
       <View className="pt-8 pb-4">
         <WorkoutHistoryDashboard history={history} settings={settings} />
+        <BodyweightPerformanceGraph history={history} stats={stats} settings={settings} />
         {preparedGraphs.map((entry, i) => {
           const { graph, exercise, collection } = entry;
           const id = `${graph.type}-${graph.id}-${i}`;
