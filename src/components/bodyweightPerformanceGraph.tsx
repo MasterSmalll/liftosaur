@@ -21,7 +21,6 @@ function format(n: number): string {
 export function BodyweightPerformanceGraph(props: IProps): JSX.Element {
   const [exercise, setExercise] = useState("");
   const [days, setDays] = useState("all");
-  const [showDetails, setShowDetails] = useState(true);
   const performances = useMemo(
     () => Bodyweight_performance(props.history, props.stats, props.settings),
     [props.history, props.stats, props.settings]
@@ -90,7 +89,7 @@ export function BodyweightPerformanceGraph(props: IProps): JSX.Element {
             {unit}: heaviest completed set per session. Compare the same reps and RPE/RIR for strength trends.
             Unknown load conventions are deliberately excluded from the total-load lines.
           </Text>
-          {showDetails && filtered.slice(-20).reverse().map((p) => (
+          {filtered.slice(-20).reverse().map((p) => (
             <View key={p.workoutId} className="py-2 border-b border-border-neutral">
               <Text className="text-sm text-text-primary">
                 {p.date} · {p.reps} reps · +{format(toUnit(p.externalKg))} {unit} external load
