@@ -783,7 +783,7 @@ describe("MCP", () => {
       const response = await handler(buildMcpEvent(jsonRpc("tools/list")), ctx);
       const names = parseBody(response).result.tools.map((t: any) => t.name);
       expect(names).to.include.members([
-        "get_structured_history", "list_custom_metrics", "get_training_analytics",
+        "get_structured_history", "get_bodyweight_load_progression", "list_custom_metrics", "get_training_analytics",
         "upsert_custom_metric", "set_history_metric",
       ]);
     });
