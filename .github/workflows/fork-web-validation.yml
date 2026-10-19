@@ -31,4 +31,4 @@ jobs:
       - name: TypeScript typecheck
         run: npm run check
       - name: Custom metrics, MacroFactor, and dashboard tests
-        run: npm run onetest -- test/customMetrics.test.ts test/importFromMacroFactor.test.ts test/importDuplicates.test.ts test/workoutHistoryDashboard.test.ts test/mcp.test.ts
+        run: npm run onetest -- test/customMetrics.test.ts test/importFromMacroFactor.test.ts test/importDuplicates.test.ts test/workoutHistoryDashboard.test.ts test/mcp.test.ts test/bodyweightPerformance.test.ts
