@@ -5,6 +5,8 @@ import { Settings_build } from "../src/models/settings";
 import { Weight_build } from "../src/models/weight";
 import {
   Bodyweight_parseMacroFactorTrend,
+  Bodyweight_contributionForWorkout,
+  Bodyweight_equivalentResistance,
   Bodyweight_forWorkout,
   Bodyweight_performance,
   Bodyweight_bestSessionSets,
@@ -79,6 +81,90 @@ describe("Bodyweight performance (no double counting)", () => {
     const p = Bodyweight_performance([workout("2026-07-16", e)], stats(), Settings_build());
     expect(p).to.have.length(0);
   });
+  it("keeps three physically distinct measures without assuming a percentage", () => {
+    const record = workout("2026-07-14", exerciseEntry("Pull Up", "pullUp", 20));
+    const result = Bodyweight_performance([record], stats(), Settings_build(), { timeZone: "Europe/Paris" });
+    expect(result).to.have.length(1);
+    expect(result[0].externalKg).to.equal(20);
+    expect(result[0].totalKg).to.equal(105); // full static support
+    expect(result[0].equivalentKg).to.equal(undefined); // no percentage verified
+    expect(result[0].contribution).to.equal(undefined);
+  });
+
+  it("uses a dated, cited 95% coefficient to derive 100.75 kg from 85 kg + 20 kg", () => {
+    const settings = Settings_build();
+    settings.exerciseData["pullUp_bodyweight"] = {
+      bodyweightContributions: [{
+        effectiveFrom: "2026-01-01", fraction: 0.95,
+        provenance: "user-estimate", reference: "Illustrative coefficient, not an official default",
+      }],
+    };
+    const result = Bodyweight_performance(
+      [workout("2026-07-14", exerciseEntry("Pull Up", "pullUp", 20))],
+      stats(), settings, { timeZone: "Europe/Paris" }
+    )[0];
+    expect(result.externalKg).to.equal(20);
+    expect(result.totalKg).to.equal(105);
+    expect(result.equivalentKg).to.equal(100.75);
+    expect(result.contribution?.fraction).to.equal(0.95);
+    expect(result.contribution?.provenance).to.equal("user-estimate");
+  });
+
+  it("supports 0/60/92/95/100 percent without confusing static load and resistance", () => {
+    for (const [pct, expected] of [[0, 20], [0.60, 71], [0.92, 98.2], [0.95, 100.75], [1, 105]]) {
+      const result = Bodyweight_equivalentResistance(20, 85, pct);
+      expect(result).to.be.closeTo(expected, 1e-8);
+    }
+    expect(Bodyweight_equivalentResistance(20, 85, -0.1)).to.equal(undefined);
+    expect(Bodyweight_equivalentResistance(20, 85, 1.1)).to.equal(undefined);
+    expect(Bodyweight_equivalentResistance(20, 85, Number.NaN)).to.equal(undefined);
+    expect(Bodyweight_equivalentResistance(20, 0, 0.95)).to.equal(undefined);
+    expect(Bodyweight_equivalentResistance(-20, 85, 0.95)).to.equal(undefined);
+  });
+
+  it("uses revision valid at workout date, without rewriting historical results", () => {
+    const settings = Settings_build();
+    settings.exerciseData["pullUp_bodyweight"] = {
+      bodyweightContributions: [
+        { effectiveFrom: "2026-07-17", fraction: 1, provenance: "user-estimate" },
+        { effectiveFrom: "2026-01-01", fraction: 0.95, provenance: "study-based-estimate" },
+      ],
+    };
+    expect(Bodyweight_contributionForWorkout("pullUp_bodyweight", "2026-07-14", settings)?.fraction).to.equal(0.95);
+    expect(Bodyweight_contributionForWorkout("pullUp_bodyweight", "2026-07-19", settings)?.fraction).to.equal(1);
+    expect(Bodyweight_contributionForWorkout("pullUp_bodyweight", "2025-12-31", settings)).to.equal(undefined);
+    expect(Bodyweight_contributionForWorkout("tricepsDip_bodyweight", "2026-07-19", settings)).to.equal(undefined);
+    expect(Bodyweight_contributionForWorkout("pullUp_bodyweight", "not-a-date", settings)).to.equal(undefined);
+  });
+
+  it("does not normalize native unknown conventions even if percentage is set", () => {
+    const settings = Settings_build();
+    settings.exerciseData["pullUp_bodyweight"] = {
+      bodyweightContributions: [{ effectiveFrom: "2026-01-01", fraction: 0.95,
+        provenance: "user-confirmed-macrofactor" }],
+    };
+    const record = workout("2026-07-14", exerciseEntry("Pull Up", "pullUp", 100), "native");
+    const result = Bodyweight_performance([record], stats(), settings, { timeZone: "Europe/Paris" })[0];
+    expect(result.externalKg).to.equal(100); // recorded, but convention not established
+    expect(result.loadSemantics).to.equal("unverified");
+    expect(result.totalKg).to.equal(undefined);
+    expect(result.equivalentKg).to.equal(undefined);
+  });
+
+  it("requires actual or explicitly estimated same-day bodyweight for derived values", () => {
+    const settings = Settings_build();
+    settings.exerciseData["pullUp_bodyweight"] = {
+      bodyweightContributions: [{ effectiveFrom: "2026-01-01", fraction: 0.95, provenance: "user-estimate" }],
+    };
+    const missing = Bodyweight_performance(
+      [workout("2026-07-15", exerciseEntry("Pull Up", "pullUp", 20))],
+      stats(), settings, { timeZone: "Europe/Paris" }
+    )[0];
+    expect(missing.bodyweight.status).to.equal("unknown");
+    expect(missing.totalKg).to.equal(undefined);
+    expect(missing.equivalentKg).to.equal(undefined);
+  });
+
   it("parses real MacroFactor trend column without pretending those points are measurements", () => {
     const data = "Date,Trend Weight (kg)\n2026-07-14 00:00:00,88.2\n2026-07-16 00:00:00,87.9";
     expect(Bodyweight_parseMacroFactorTrend(data)).to.deep.equal([
