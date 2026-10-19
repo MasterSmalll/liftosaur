@@ -2,12 +2,13 @@ import { expect, test, Page } from "@playwright/test";
 
 // Every number and exercise below is synthetic; no private fitness exports, credentials,
 // real accounts or production API endpoints are used in the browser test environment.
-const START = "/app/?skipintro=1&nosync=true";
+const START = "/app/index.html?skipintro=1&nosync=true";
 const DATE1 = Date.parse("2026-07-14T12:00:00Z");
 const DATE2 = Date.parse("2026-07-16T12:00:00Z");
 
 async function openIsolatedApp(page: Page): Promise<void> {
-  await page.goto(START);
+  const response = await page.goto(START);
+  expect(response?.status(), "webpack must serve the actual app HTML, not a proxy/404 page").toBe(200);
   await page.waitForFunction(() => !!(window as any).state?.storage?.settings);
 }
 
