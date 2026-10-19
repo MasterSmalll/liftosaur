@@ -35,7 +35,8 @@ jobs:
 
   chromium-browser:
     name: Chromium — real fork Web UI (no production sync)
-    runs-on: ubuntu-latest
+    # Playwright 1.44 requires libasound2, which Ubuntu 24.04 replaced with libasound2t64.
+    runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
