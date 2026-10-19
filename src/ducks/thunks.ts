@@ -120,6 +120,7 @@ import { UrlUtils_build } from "../utils/url";
 import { ImportFromLiftosaur_convertLiftosaurCsvToHistoryRecords } from "../utils/importFromLiftosaur";
 import { ImportFromHevy_convertHevyCsvToHistoryRecords } from "../utils/importFromHevy";
 import { ImportFromMacroFactor_convertCsvToHistoryRecords } from "../utils/importFromMacroFactor";
+import { Bodyweight_parseMacroFactorTrend } from "../models/bodyweightPerformance";
 import { Sync_getStorageUpdate2 } from "../utils/sync";
 import {
   ISyncBaselineSource,
@@ -1856,6 +1857,31 @@ export function Thunk_importHevyData(rawCsv: string): IThunk {
         Dialog_alert("Failed to import history from Hevy.");
       }
     }
+  };
+}
+
+/** Import MacroFactor's trend-weight CSV into estimated-bodyweight storage only.
+ *  Does not touch the measured scale/Apple Health measurements.
+ */
+export function Thunk_importMacroFactorTrendWeight(rawCsv: string): IThunk {
+  return (dispatch, getState) => {
+    let trend;
+    try {
+      trend = Bodyweight_parseMacroFactorTrend(rawCsv);
+    } catch (error) {
+      Dialog_alert(error instanceof Error ? error.message : "Invalid trend-weight CSV");
+      return;
+    }
+    const previous = getState().storage.stats.bodyweightTrend ?? [];
+    const existing = new Map(previous.map((point) => [point.date, point]));
+    for (const point of trend) existing.set(point.date, point);
+    const merged = Array.from(existing.values()).sort((a, b) => a.date.localeCompare(b.date));
+    updateState(
+      dispatch,
+      [lb<IState>().p("storage").p("stats").pi("bodyweightTrend", []).set(merged)],
+      "Import MacroFactor estimated trend weight"
+    );
+    Dialog_alert(`Imported ${trend.length} trend-weight dates. Scale measurements remain unchanged.`);
   };
 }
 
