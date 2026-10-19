@@ -161,6 +161,7 @@ const EXERCISE_DATA_ARG_PARSERS: Record<IWritableExerciseDataField, (raw: unknow
   muscleMultipliers: asJson,
   isUnilateral: asBool,
   volumeMultiplier: asNumber,
+  bodyweightContributions: asJson,
 };
 
 function parseExerciseDataArgs(args: Record<string, unknown>): {
@@ -175,7 +176,7 @@ function parseExerciseDataArgs(args: Record<string, unknown>): {
       }
     }
   } catch (e) {
-    return { input, error: err(400, "invalid_input", "equipment and muscleMultipliers must be valid JSON") };
+    return { input, error: err(400, "invalid_input", "equipment, muscleMultipliers and bodyweightContributions must be valid JSON") };
   }
   return { input };
 }
