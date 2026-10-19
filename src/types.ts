@@ -1544,7 +1544,7 @@ export interface IBodyweightContributionRevision {
   reference?: string;
 }
 export const VBodyweightContributionRevision: v.GenericSchema<IBodyweightContributionRevision> = v.object({
-  effectiveFrom: v.pipe(v.string(), v.regex(/^\\d{4}-\\d{2}-\\d{2}$/)),
+  effectiveFrom: v.pipe(v.string(), v.regex(/^\d{4}-\d{2}-\d{2}$/)),
   fraction: v.pipe(v.number(), v.finite(), v.minValue(0), v.maxValue(1)),
   provenance: v.union([
     v.literal("user-confirmed-macrofactor"),
