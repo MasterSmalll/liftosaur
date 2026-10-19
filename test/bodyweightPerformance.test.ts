@@ -27,7 +27,7 @@ function stats(): IStats {
     ],
   };
 }
-function exerciseEntry(name: string, id: string, extraKg: number): IHistoryEntry {
+function exerciseEntry(_name: string, id: string, extraKg: number): IHistoryEntry {
   const set: ISet = {
     vtype: "set", id: "working-1", index: 0, completedReps: 5, reps: 5,
     completedWeight: Weight_build(extraKg, "kg"), isCompleted: true,
