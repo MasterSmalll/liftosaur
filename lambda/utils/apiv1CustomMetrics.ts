@@ -6,6 +6,7 @@ import { ICustomMetricDefinition, ICustomMetricValue, IHistoryRecord, VCustomMet
 import { CustomMetrics_definitions, CustomMetrics_setValue, CustomMetrics_updateSet, CustomMetrics_validate } from "../../src/models/customMetrics";
 import { CustomMetrics_numericSeries } from "../../src/models/customMetrics";
 import { WorkoutHistory_summarize, WorkoutHistory_totals, WorkoutHistory_trend, IWorkoutHistoryMeasure, IWorkoutHistoryGrouping } from "../../src/models/workoutHistoryDashboard";
+import { Bodyweight_performance } from "../../src/models/bodyweightPerformance";
 import * as v from "valibot";
 
 type Result<T> = IEither<T, IApiError>;
@@ -119,6 +120,45 @@ export async function ApiV1_getTrainingAnalytics(
       metricTimeline: CustomMetrics_numericSeries(selectedRecords, metric, params.exerciseKey as string | undefined),
     } : {}),
     filters: { grouping, measure, days: days ?? "all", program: params.program ?? "all", exerciseKey: params.exerciseKey ?? "all" },
+  });
+}
+
+/** Read-only comparison of ballast and estimated system load, without touching logged weights. */
+export async function ApiV1_getBodyweightLoadProgression(
+  userId: string,
+  user: ILimitedUserDao,
+  params: { exerciseKey?: unknown; timeZone?: unknown; limit?: unknown },
+  di: IDI
+): Promise<Result<{
+  points: ReturnType<typeof Bodyweight_performance>;
+  totalPoints: number;
+  trendDays: number;
+  scaleMeasurements: number;
+  semantics: string;
+}>> {
+  if (params.exerciseKey != null && (typeof params.exerciseKey !== "string" || params.exerciseKey.length > 120)) {
+    return err(400, "invalid_input", "exerciseKey must be a short string");
+  }
+  if (params.timeZone != null && (typeof params.timeZone !== "string" || params.timeZone.length > 80)) {
+    return err(400, "invalid_input", "timeZone must be an IANA time zone");
+  }
+  const limit = validatePagination(params.limit, 100, 500);
+  if (!limit) return err(400, "invalid_input", "limit must be 1-500");
+  const zone = typeof params.timeZone === "string" ? params.timeZone : "UTC";
+  try {
+    new Intl.DateTimeFormat("en-GB", { timeZone: zone });
+  } catch {
+    return err(400, "invalid_input", "Unknown IANA time zone");
+  }
+  const history = await new UserDao(di).getHistoryByUserId(userId);
+  const result = Bodyweight_performance(history, user.storage.stats, user.storage.settings, { timeZone: zone })
+    .filter((p) => params.exerciseKey == null || p.exerciseKey === params.exerciseKey);
+  return ok({
+    points: result.slice(-limit),
+    totalPoints: result.length,
+    trendDays: user.storage.stats.bodyweightTrend?.length ?? 0,
+    scaleMeasurements: user.storage.stats.weight.weight?.length ?? 0,
+    semantics: "Recorded ballast and measured weight are kept separate. MacroFactor trend weight is estimated. Unverified native loads do not produce calculated total loads.",
   });
 }
 
