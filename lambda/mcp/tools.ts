@@ -154,12 +154,27 @@ const EXERCISE_DATA_FIELD_SCHEMAS: Record<string, IMcpJsonSchema> = {
     description:
       "Multiplier applied to this exercise's volume/total-weight (not to prescribed weights), clamped to 1-10. Set to 2 for exercises loaded with two dumbbells simultaneously (e.g. dumbbell shoulder press), where the displayed weight is per-dumbbell. null clears the override.",
   },
+  bodyweightContributions: {
+    type: ["array", "null"],
+    description:
+      "Versioned, exercise-specific bodyweight resistance coefficients. Replaces the entire list; each item needs effectiveFrom (YYYY-MM-DD), fraction (0-1) and provenance (user-estimate, study-based-estimate or user-confirmed-macrofactor), plus an optional reference. No coefficient is assumed by default. Null clears all revisions.",
+    items: {
+      type: "object",
+      properties: {
+        effectiveFrom: { type: "string", description: "Date from which the coefficient is valid, YYYY-MM-DD" },
+        fraction: { type: "number", description: "Bodyweight resistance fraction from 0 to 1" },
+        provenance: { type: "string", enum: ["user-estimate", "study-based-estimate", "user-confirmed-macrofactor"] },
+        reference: { type: "string", description: "Optional source or explanation" },
+      },
+      required: ["effectiveFrom", "fraction", "provenance"],
+    },
+  },
 };
 
 const mcpToolsWithoutOutputSchema: Omit<IMcpToolDef, "outputSchema">[] = [
   {
     name: "get_bodyweight_load_progression",
-    description: "Read pull-up and dip weighted performance with added load, same-date real weigh-ins, MacroFactor trend estimates, and total body-plus-added weight when confirmed safe. Excludes kipping/assisted and never double-adds bodyweight to native sets with unknown load conventions. Accept IANA timeZone (e.g. Europe/Paris) and exerciseKey.",
+    description: "Read pull-up and dip weighted performance with recorded external load, measured/estimated bodyweight, statically supported mass, and coefficient-based equivalent resistance when verified. Excludes kipping/assisted and never double-adds bodyweight to native sets with unknown load conventions. Accept IANA timeZone (e.g. Europe/Paris) and exerciseKey.",
     annotations: { title: "Analyze pull-up/dip total load", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     inputSchema: {
       type: "object",
@@ -725,7 +740,7 @@ const mcpToolsWithoutOutputSchema: Omit<IMcpToolDef, "outputSchema">[] = [
   {
     name: "list_exercise_data",
     description:
-      "List all per-exercise settings the user has customized (1 rep max, weight rounding, per-gym equipment overrides, notes, muscle overrides, unilateral flag). Each entry is keyed by an exercise key: a built-in exercise id joined with its equipment by '_' (e.g. 'squat_barbell', 'benchPress_barbell'), or a custom exercise id. Exercises without any customization don't appear here — that's expected; their values fall back to defaults. Use this to discover the exact keys already in use before writing with set_exercise_data.",
+      "List all per-exercise settings the user has customized (1 rep max, weight rounding, per-gym equipment overrides, notes, muscle overrides, unilateral flag, and bodyweight contribution revisions). Each entry is keyed by an exercise key: a built-in exercise id joined with its equipment by '_' (e.g. 'squat_barbell', 'benchPress_barbell'), or a custom exercise id. Exercises without any customization don't appear here — that's expected; their values fall back to defaults. Use this to discover the exact keys already in use before writing with set_exercise_data.",
     annotations: { title: "List exercise settings", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     inputSchema: { type: "object", properties: {} },
   },
@@ -749,7 +764,7 @@ const mcpToolsWithoutOutputSchema: Omit<IMcpToolDef, "outputSchema">[] = [
   {
     name: "set_exercise_data",
     description:
-      "Set (upsert) per-exercise settings for an exercise key like 'squat_barbell' or 'benchPress_barbell'. Use this to set a user's 1 rep max (rm1), weight rounding, per-gym equipment overrides, notes, muscle overrides, or the unilateral flag. Only provided fields change; omitted fields keep their current values; pass null for a field to clear it (revert to default). The key's exercise must exist (built-in id from list_exercises, joined with its equipment by '_', or a custom exercise id). Prefer the equipment-qualified key that matches how the user trains — a bare built-in id only matches the no-equipment variant and won't affect normal barbell/dumbbell entries.",
+      "Set (upsert) per-exercise settings for an exercise key like 'squat_barbell' or 'benchPress_barbell'. Use this to set a user's 1 rep max (rm1), weight rounding, per-gym equipment overrides, notes, muscle overrides, the unilateral flag, or date-versioned bodyweight contribution percentages. Only provided fields change; omitted fields keep their current values; pass null for a field to clear it (revert to default). The key's exercise must exist (built-in id from list_exercises, joined with its equipment by '_', or a custom exercise id). Prefer the equipment-qualified key that matches how the user trains — a bare built-in id only matches the no-equipment variant and won't affect normal barbell/dumbbell entries.",
     annotations: { title: "Set exercise settings", readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     inputSchema: {
       type: "object",
