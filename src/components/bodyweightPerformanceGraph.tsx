@@ -1,6 +1,8 @@
 import { JSX, useMemo, useState } from "react";
 import { View } from "react-native";
 import { Text } from "./primitives/text";
+import { BodyweightContributionEditor } from "./bodyweightContributionEditor";
+import { IDispatch } from "../ducks/types";
 import { Select } from "./primitives/select";
 import { LineChart } from "./lineChart";
 import { Tailwind_colors } from "../utils/tailwindConfig";
@@ -12,6 +14,7 @@ interface IProps {
   history: IHistoryRecord[];
   stats: IStats;
   settings: ISettings;
+  dispatch: IDispatch;
 }
 
 function format(n: number): string {
@@ -46,13 +49,15 @@ export function BodyweightPerformanceGraph(props: IProps): JSX.Element {
       filtered.map((p) => p.loadSemantics === "external" ? toUnit(p.externalKg) : null),
       filtered.map((p) => p.bodyweight.status === "measured" && p.totalKg != null ? toUnit(p.totalKg) : null),
       filtered.map((p) => p.bodyweight.status === "estimated" && p.totalKg != null ? toUnit(p.totalKg) : null),
+      filtered.map((p) => p.bodyweight.status === "measured" && p.equivalentKg != null ? toUnit(p.equivalentKg) : null),
+      filtered.map((p) => p.bodyweight.status === "estimated" && p.equivalentKg != null ? toUnit(p.equivalentKg) : null),
     ],
     [filtered, unit]
   );
   const colors = Tailwind_colors();
   return (
     <View className="mx-4 mb-8" testID="bodyweight-load-performance">
-      <Text className="text-xl font-semibold text-text-primary">Pull-ups and dips — total load</Text>
+      <Text className="text-xl font-semibold text-text-primary">Pull-ups and dips — three load measures</Text>
       <Text className="text-sm text-text-secondary mb-2">
         Added weight stays separate from bodyweight. Estimated trend weights are not scale measurements.
       </Text>
@@ -74,12 +79,21 @@ export function BodyweightPerformanceGraph(props: IProps): JSX.Element {
               className="p-2 text-xs bg-background-default"
             />
           </View>
+          <BodyweightContributionEditor
+            key={key}
+            exerciseKey={key}
+            exerciseName={available.find((x) => x.value === key)?.label ?? key}
+            settings={props.settings}
+            dispatch={props.dispatch}
+          />
           <LineChart
             data={data}
             series={[
-              { label: "Added weight", color: colors.blue[500], show: true, width: 2 },
-              { label: "Total (measured)", color: colors.green[500], show: true, width: 2 },
-              { label: "Total (estimated)", color: colors.orange[500], show: true, width: 2 },
+              { label: "External added weight", color: colors.blue[500], show: true, width: 2 },
+              { label: "Static support (measured BW)", color: colors.green[500], show: true, width: 2 },
+              { label: "Static support (estimated BW)", color: colors.orange[500], show: true, width: 2 },
+              { label: "Equivalent resistance (measured BW)", color: colors.purple[500], show: true, width: 2 },
+              { label: "Equivalent resistance (estimated BW)", color: colors.red[500], show: true, width: 2 },
             ]}
             height={260}
             yAxisFormatter={(v) => format(v)}
@@ -87,7 +101,9 @@ export function BodyweightPerformanceGraph(props: IProps): JSX.Element {
           />
           <Text className="text-xs text-text-secondary mb-2">
             {unit}: heaviest completed set per session. Compare the same reps and RPE/RIR for strength trends.
-            Unknown load conventions are deliberately excluded from the total-load lines.
+            Static support assumes the whole body is supported at rest, NOT that all segments travel
+            the same distance or that muscle force equals load. Equivalent resistance uses only your
+            dated per-exercise coefficient. Unknown load semantics never produce derived values.
           </Text>
           {filtered.slice(-20).reverse().map((p) => (
             <View key={p.workoutId} className="py-2 border-b border-border-neutral">
@@ -100,7 +116,9 @@ export function BodyweightPerformanceGraph(props: IProps): JSX.Element {
                   : p.bodyweight.status === "estimated"
                     ? `MacroFactor trend estimate: ${format(toUnit(p.bodyweight.kg))} ${unit}`
                     : "Bodyweight unavailable"}
-                {p.totalKg == null ? " · total unknown" : ` · estimated system load: ${format(toUnit(p.totalKg))} ${unit}`}
+                {p.totalKg == null ? " · static support unknown" : ` · static supported mass: ${format(toUnit(p.totalKg))} ${unit}`}
+                {p.equivalentKg == null ? " · equivalent resistance not available" :
+                  ` · equivalent resistance: ${format(toUnit(p.equivalentKg))} ${unit} (${format((p.contribution?.fraction ?? 0) * 100)}% · ${p.contribution?.provenance})`}
               </Text>
             </View>
           ))}
