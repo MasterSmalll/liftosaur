@@ -1763,7 +1763,7 @@ export interface IBodyweightTrendPoint {
   source: "macrofactor";
 }
 export const VBodyweightTrendPoint: v.GenericSchema<IBodyweightTrendPoint> = v.object({
-  date: v.pipe(v.string(), v.regex(/^\\d{4}-\\d{2}-\\d{2}$/)),
+  date: v.pipe(v.string(), v.regex(/^\d{4}-\d{2}-\d{2}$/)),
   kg: v.pipe(v.number(), v.minValue(20), v.maxValue(500)),
   source: v.literal("macrofactor"),
 });
