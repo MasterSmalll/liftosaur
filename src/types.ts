@@ -1531,6 +1531,29 @@ export const VMuscleMultiplier: v.GenericSchema<IMuscleMultiplier> = _VMuscleMul
 // with `as IMuscle[]` after ObjectUtils_keys / Object.keys. (A union override here would
 // create real structural divergence between IExerciseDataValue and the schema's inferred
 // output, which would propagate through ISettings and break the IEquals check.)
+/** A configurable approximation, never a measurement of muscular force.
+ * Time-versioned so coefficient changes do not silently rewrite historical calculations. */
+export type IBodyweightContributionProvenance =
+  | "user-confirmed-macrofactor"
+  | "study-based-estimate"
+  | "user-estimate";
+export interface IBodyweightContributionRevision {
+  effectiveFrom: string; // Calendar YYYY-MM-DD
+  fraction: number; // Bodyweight contribution in [0, 1]
+  provenance: IBodyweightContributionProvenance;
+  reference?: string;
+}
+export const VBodyweightContributionRevision: v.GenericSchema<IBodyweightContributionRevision> = v.object({
+  effectiveFrom: v.pipe(v.string(), v.regex(/^\\d{4}-\\d{2}-\\d{2}$/)),
+  fraction: v.pipe(v.number(), v.finite(), v.minValue(0), v.maxValue(1)),
+  provenance: v.union([
+    v.literal("user-confirmed-macrofactor"),
+    v.literal("study-based-estimate"),
+    v.literal("user-estimate"),
+  ]),
+  reference: v.optional(v.string()),
+});
+
 export interface IExerciseDataValue {
   rm1?: IWeight;
   rounding?: number;
@@ -1539,6 +1562,7 @@ export interface IExerciseDataValue {
   muscleMultipliers?: Record<string, number | undefined>;
   isUnilateral?: boolean;
   volumeMultiplier?: number;
+  bodyweightContributions?: IBodyweightContributionRevision[];
 }
 const _VExerciseDataValue = v.object({
   rm1: v.optional(VWeight),
@@ -1548,6 +1572,7 @@ const _VExerciseDataValue = v.object({
   muscleMultipliers: v.optional(v.record(v.string(), v.optional(v.number()))),
   isUnilateral: v.optional(v.boolean()),
   volumeMultiplier: v.optional(v.number()),
+  bodyweightContributions: v.optional(v.array(VBodyweightContributionRevision)),
 });
 const _VExerciseDataValueMatches: IEquals<v.InferOutput<typeof _VExerciseDataValue>, IExerciseDataValue> = true;
 void _VExerciseDataValueMatches;
