@@ -1,4 +1,4 @@
-import { IBodyweightTrendPoint, IHistoryRecord, ISet, ISettings, IStats, IStatsWeightValue } from "../types";
+import { IBodyweightTrendPoint, IHistoryRecord, ISettings, IStats, IStatsWeightValue } from "../types";
 import { Weight_convertTo } from "./weight";
 import { Exercise_get } from "./exercise";
 
