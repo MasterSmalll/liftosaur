@@ -9,7 +9,28 @@ const DATE2 = Date.parse("2026-07-16T12:00:00Z");
 async function openIsolatedApp(page: Page): Promise<void> {
   const response = await page.goto(START);
   expect(response?.status(), "webpack must serve the actual app HTML, not a proxy/404 page").toBe(200);
-  await page.waitForFunction(() => !!(window as any).state?.storage?.settings);
+  await page.waitForFunction(() =>
+    !!(window as any).state?.storage?.settings && typeof (window as any).storeData === "function"
+  );
+  // skipintro=1 skips the intro screens but still opens onboarding's program picker
+  // on an empty profile. Bootstrap a local-only empty program so the next load
+  // enters MainTabs and exposes the real Graphs/Me footer navigation.
+  const didBootstrap = await page.evaluate(async () => {
+    const app = window as any;
+    if (app.state.storage.currentProgramId) {
+      return false;
+    }
+    const storage = structuredClone(app.state.storage);
+    storage.currentProgramId = "emptyprogram"; // Built-in empty program, no server/account data.
+    await app.storeData({ storage });
+    return true;
+  });
+  if (didBootstrap) {
+    await page.reload();
+    await page.waitForFunction(() => (window as any).state?.storage?.currentProgramId === "emptyprogram");
+  }
+  await expect(page.getByTestId("footer-graphs")).toBeVisible();
+  await expect(page.getByTestId("footer-me")).toBeVisible();
 }
 
 async function seedSyntheticHistory(page: Page): Promise<void> {
