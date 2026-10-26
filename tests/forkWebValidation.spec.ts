@@ -9,36 +9,45 @@ const DATE2 = Date.parse("2026-07-16T12:00:00Z");
 async function openIsolatedApp(page: Page): Promise<void> {
   const response = await page.goto(START);
   expect(response?.status(), "webpack must serve the actual app HTML, not a proxy/404 page").toBe(200);
-  await page.waitForFunction(() =>
-    !!(window as any).state?.storage?.settings && typeof (window as any).storeData === "function"
-  );
-  // skipintro=1 skips the intro screens but still opens onboarding's program picker
-  // on an empty profile. Bootstrap a local-only empty program so the next load
-  // enters MainTabs and exposes the real Graphs/Me footer navigation.
-  const didBootstrap = await page.evaluate(async () => {
-    const app = window as any;
-    if (app.state.storage.currentProgramId) {
-      return false;
+  const entitlement = "CI-SYNTHETIC-ENTITLEMENT-NOT-A-REAL-KEY";
+  // The first launch can still have pending writes from Liftosaur initialization.
+  // Re-read after each reload and retry a local-only bootstrap if a write raced
+  // those initial saves. Fail quickly with a useful state snapshot if it persists.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await page.waitForFunction(() =>
+      !!(window as any).state?.storage?.settings && typeof (window as any).storeData === "function"
+    );
+    const ready = await page.evaluate(({ entitlement }) => {
+      const storage = (window as any).state.storage;
+      return storage.currentProgramId === "emptyprogram" &&
+        storage.hearAboutUs?.done === true &&
+        storage.subscription?.key === entitlement;
+    }, { entitlement });
+    if (ready) {
+      await expect(page.getByTestId("footer-graphs")).toBeVisible();
+      await expect(page.getByTestId("footer-me")).toBeVisible();
+      return;
     }
-    const storage = structuredClone(app.state.storage);
-    storage.currentProgramId = "emptyprogram"; // Built-in empty program, no server/account data.
-    // A fresh account would otherwise open the onboarding "hear about us" modal
-    // over the tab bar, intercepting every Playwright pointer event. Mark this
-    // unrelated survey completed in the synthetic fixture, without a UI bypass.
-    storage.hearAboutUs = { requests: [], done: true };
-    // Graphs is a Premium route in Liftosaur. Grant a plainly synthetic,
-    // local-only test entitlement so we can exercise the real UI without
-    // changing or bypassing production subscription checks.
-    storage.subscription = { ...storage.subscription, key: "CI-SYNTHETIC-ENTITLEMENT-NOT-A-REAL-KEY" };
-    await app.storeData({ storage });
-    return true;
-  });
-  if (didBootstrap) {
+    await page.evaluate(async ({ entitlement }) => {
+      const app = window as any;
+      const storage = structuredClone(app.state.storage);
+      storage.currentProgramId = "emptyprogram";
+      // Prevent unrelated onboarding dialogs from blocking the isolated suite.
+      storage.hearAboutUs = { requests: [], done: true };
+      // Local synthetic entitlement: exercise the real Premium UI without
+      // altering production subscription checks or contacting any payment API.
+      storage.subscription = { ...storage.subscription, key: entitlement };
+      await app.storeData({ storage });
+    }, { entitlement });
     await page.reload();
-    await page.waitForFunction(() => (window as any).state?.storage?.currentProgramId === "emptyprogram");
   }
-  await expect(page.getByTestId("footer-graphs")).toBeVisible();
-  await expect(page.getByTestId("footer-me")).toBeVisible();
+  const snapshot = await page.evaluate(() => ({
+    program: (window as any).state?.storage?.currentProgramId,
+    surveyDone: (window as any).state?.storage?.hearAboutUs?.done,
+    hasTestEntitlement: (window as any).state?.storage?.subscription?.key ===
+      "CI-SYNTHETIC-ENTITLEMENT-NOT-A-REAL-KEY",
+  }));
+  throw new Error("Isolated app bootstrap did not persist after 4 attempts: " + JSON.stringify(snapshot));
 }
 
 async function seedSyntheticHistory(page: Page): Promise<void> {
@@ -139,12 +148,16 @@ test("Contribution editor records 95% in native settings and survives browser re
   await expect(editor).toBeVisible();
   await expect(graph).toContainText("equivalent resistance not available");
 
-  // InputNumber2 is a virtual number pad, not an HTML text box.
-  await editor.getByTestId("input-bodyweight-contribution-percent-field").click();
-  await page.getByTestId("keyboard-button-9").click();
-  await page.getByTestId("keyboard-button-5").click();
-  await page.getByTestId("keyboard-close").click();
-  await editor.getByTestId("save-bodyweight-contribution").click();
+  // InputNumber2 uses document keydown events on desktop, not the mobile pad.
+  const percentField = editor.getByTestId("input-bodyweight-contribution-percent-field");
+  await percentField.click();
+  await expect(percentField.locator(".blinking")).toBeVisible();
+  await page.keyboard.type("95");
+  await expect(percentField).toContainText("95");
+  await page.keyboard.press("Enter"); // inputCommitMode="blur": persist the new value.
+  const saveContribution = editor.getByTestId("save-bodyweight-contribution");
+  await expect(saveContribution).toBeEnabled();
+  await saveContribution.click();
   await expect(editor).toContainText("Coefficient saved");
   await expect(graph).toContainText("equivalent resistance: 100.75 kg");
   await expect(graph).toContainText("95%");
