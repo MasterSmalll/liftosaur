@@ -26,6 +26,10 @@ async function openIsolatedApp(page: Page): Promise<void> {
     // over the tab bar, intercepting every Playwright pointer event. Mark this
     // unrelated survey completed in the synthetic fixture, without a UI bypass.
     storage.hearAboutUs = { requests: [], done: true };
+    // Graphs is a Premium route in Liftosaur. Grant a plainly synthetic,
+    // local-only test entitlement so we can exercise the real UI without
+    // changing or bypassing production subscription checks.
+    storage.subscription = { ...storage.subscription, key: "CI-SYNTHETIC-ENTITLEMENT-NOT-A-REAL-KEY" };
     await app.storeData({ storage });
     return true;
   });
