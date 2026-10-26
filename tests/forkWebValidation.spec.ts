@@ -22,6 +22,10 @@ async function openIsolatedApp(page: Page): Promise<void> {
     }
     const storage = structuredClone(app.state.storage);
     storage.currentProgramId = "emptyprogram"; // Built-in empty program, no server/account data.
+    // A fresh account would otherwise open the onboarding "hear about us" modal
+    // over the tab bar, intercepting every Playwright pointer event. Mark this
+    // unrelated survey completed in the synthetic fixture, without a UI bypass.
+    storage.hearAboutUs = { requests: [], done: true };
     await app.storeData({ storage });
     return true;
   });
