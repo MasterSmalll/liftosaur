@@ -55,6 +55,9 @@ No production deployment or historical MacroFactor import has been made.
 - Ambiguous dips are left as a custom exercise pending a chest/triceps variant choice.
 - The export includes calendar dates and workout duration but **no actual start clock time**; the importer uses UTC midnight as a clearly documented date anchor for historical grouping only.
 - Import IDs are deterministic, so importing the same CSV twice can be detected and skipped in the standard preview. Existing data is not overwritten.
+- Duplicate checks compare exercise identity, working/warm-up repetitions and loads, superset group, RIR and duration, not only the number of sets. Same-day sessions with changed repetitions/loads are not silently treated as identical.
+- If a MacroFactor record has the **same source ID but different recorded values**, Import Preview reports a conflict and **excludes that record regardless of the "include duplicates" toggle**. Resolve the source-vs-history difference manually after making a backup; never overwrite training data just because the CSV was re-exported.
+- Identity remains calendar-date + workout-name based because MacroFactor Workouts provides no exact start time. Two distinct workouts with the *same date and exact same name* cannot yet be reliably separated by this import format; inspect such exports before import.
 - Unusually large groups of identical sets are shown as warnings rather than silently combined.
 
 ### Data protection
