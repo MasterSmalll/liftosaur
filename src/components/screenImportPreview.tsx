@@ -69,10 +69,13 @@ export function ScreenImportPreview(props: IProps): JSX.Element {
   );
   const recordsToImport = useMemo(
     () =>
-      shouldSkipDuplicates && summary.duplicateIds.size > 0
-        ? result.historyRecords.filter((r) => !summary.duplicateIds.has(r.id))
-        : result.historyRecords,
-    [shouldSkipDuplicates, summary.duplicateIds, result.historyRecords]
+      result.historyRecords.filter((record) =>
+        // A repeated MacroFactor source ID with different sets/loads must NEVER
+        // overwrite recorded history, even when the duplicate-skip toggle is off.
+        !summary.conflictIds.has(record.id) &&
+        (!shouldSkipDuplicates || !summary.duplicateIds.has(record.id))
+      ),
+    [shouldSkipDuplicates, summary.duplicateIds, summary.conflictIds, result.historyRecords]
   );
   // Counts/date-range/custom-exercise list reflect what will ACTUALLY be imported (duplicates are
   // skipped by default), not every parsed record.
@@ -167,6 +170,16 @@ export function ScreenImportPreview(props: IProps): JSX.Element {
                 } suspicious`}
                 items={result.warnings.map(formatRowError)}
               />
+            )}
+            {summary.conflictIds.size > 0 && (
+              <View className="pt-1">
+                <Text className="text-sm text-text-secondary">
+                  ⚠ {summary.conflictIds.size} MacroFactor {StringUtils_pluralize("workout", summary.conflictIds.size)}{" "}
+                  share a source ID with existing history, but their exercise sets, loads or duration differ.
+                  They are blocked from automatic import even if duplicates are included.
+                  Compare the source export and existing history before resolving them.
+                </Text>
+              </View>
             )}
             {summary.duplicateIds.size > 0 && (
               <View className="pt-1">
