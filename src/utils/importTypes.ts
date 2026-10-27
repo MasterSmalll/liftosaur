@@ -1,4 +1,4 @@
-import { ICustomExercise, IHistoryRecord } from "../types";
+import { ICustomExercise, IHistoryRecord, ISet, IWeight } from "../types";
 
 export interface IImportRowError {
   row: number;
@@ -72,6 +72,8 @@ export interface IImportSummary {
   maxStartTime?: number;
   customExerciseNames: string[];
   duplicateIds: Set<number>;
+  // A matching MacroFactor source ID with different recorded values must never be overwritten implicitly.
+  conflictIds: Set<number>;
 }
 
 export function ImportUtils_summarize(result: IImportResult, existingHistory: IHistoryRecord[]): IImportSummary {
@@ -93,10 +95,57 @@ export function ImportUtils_summarize(result: IImportResult, existingHistory: IH
       .map((e) => e.name)
       .sort(),
     duplicateIds: ImportUtils_findDuplicates(result.historyRecords, existingHistory),
+    conflictIds: ImportUtils_findMacroFactorConflicts(result.historyRecords, existingHistory),
   };
 }
 
 const duplicateToleranceMs = 60 * 1000;
+
+// Compare the imported workout's actual data, not only exercise names and set counts.
+// MacroFactor's export provides calendar dates but no clock times; unrelated workouts
+// with the same display name and number of sets must not be silently discarded.
+function sameWeight(a: IWeight | undefined, b: IWeight | undefined): boolean {
+  return a?.value === b?.value && a?.unit === b?.unit;
+}
+
+function sameMacroFactorSet(a: ISet, b: ISet): boolean {
+  return (a.completedReps ?? a.reps) === (b.completedReps ?? b.reps) &&
+    sameWeight(a.completedWeight ?? a.weight, b.completedWeight ?? b.weight) &&
+    a.completedSetTimer === b.completedSetTimer &&
+    a.customMetrics?.rir === b.customMetrics?.rir;
+}
+
+function sameMacroFactorRecord(a: IHistoryRecord, b: IHistoryRecord): boolean {
+  if (a.source !== "macrofactor-workouts" || b.source !== "macrofactor-workouts") return false;
+  const duration = (r: IHistoryRecord): number | undefined =>
+    r.endTime == null ? undefined : r.endTime - r.startTime;
+  return a.date.slice(0, 10) === b.date.slice(0, 10) &&
+    a.dayName === b.dayName &&
+    duration(a) === duration(b) &&
+    a.entries.length === b.entries.length &&
+    a.entries.every((entry, i) => {
+      const existing = b.entries[i];
+      return existing != null &&
+        entry.exercise.id === existing.exercise.id &&
+        entry.exercise.equipment === existing.exercise.equipment &&
+        entry.superset === existing.superset &&
+        entry.sets.length === existing.sets.length &&
+        entry.warmupSets.length === existing.warmupSets.length &&
+        entry.sets.every((set, j) => sameMacroFactorSet(set, existing.sets[j])) &&
+        entry.warmupSets.every((set, j) => sameMacroFactorSet(set, existing.warmupSets[j]));
+    });
+}
+
+export function ImportUtils_findMacroFactorConflicts(
+  records: IHistoryRecord[], existingHistory: IHistoryRecord[]
+): Set<number> {
+  const existingById = new Map(existingHistory.map((record) => [record.id, record]));
+  return new Set(records.filter((record) => {
+    if (record.source !== "macrofactor-workouts") return false;
+    const existing = existingById.get(record.id);
+    return existing?.source === "macrofactor-workouts" && !sameMacroFactorRecord(record, existing);
+  }).map((record) => record.id));
+}
 
 export function ImportUtils_findDuplicates(records: IHistoryRecord[], existingHistory: IHistoryRecord[]): Set<number> {
   const existingIds = new Set(existingHistory.map((r) => r.id));
@@ -111,17 +160,7 @@ export function ImportUtils_findDuplicates(records: IHistoryRecord[], existingHi
       continue;
     }
     if (record.source === "macrofactor-workouts") {
-      if (existingHistory.some((existing) =>
-        existing.source === "macrofactor-workouts" &&
-        existing.date.slice(0, 10) === record.date.slice(0, 10) &&
-        existing.dayName === record.dayName &&
-        existing.entries.length === record.entries.length &&
-        existing.entries.every((entry, i) =>
-          entry.exercise.id === record.entries[i]?.exercise.id &&
-          entry.sets.length === record.entries[i]?.sets.length &&
-          entry.warmupSets.length === record.entries[i]?.warmupSets.length
-        )
-      )) {
+      if (existingHistory.some((existing) => sameMacroFactorRecord(record, existing))) {
         duplicates.add(record.id);
       }
       continue;
