@@ -17,6 +17,8 @@ import { WorkoutExerciseUtils_getBgColor100, WorkoutExerciseUtils_getIconColor }
 import { DateUtils_formatDayMonth } from "../utils/date";
 import { ActionMenu, IActionMenuAction } from "./actionMenu";
 import type { IWorkoutExerciseSetBodyProps } from "./workoutExerciseSet";
+import { CustomMetricFields } from "./customMetricFields";
+import { CustomMetrics_definitions } from "../models/customMetrics";
 import {
   RpeWeightHint,
   WorkoutExerciseLastSet,
@@ -281,6 +283,14 @@ export function WorkoutExerciseSetExpanded(props: IWorkoutExerciseSetBodyProps):
                   </LinkButton>
                 )}
               </Pressable>
+            )}
+
+            {props.type === "workout" && (
+              <CustomMetricFields
+                definitions={CustomMetrics_definitions(props.settings, "set")}
+                values={set.customMetrics}
+                onChange={props.onChangeMetric}
+              />
             )}
 
             {previousLines.length > 0 && (

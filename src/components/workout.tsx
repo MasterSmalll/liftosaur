@@ -37,6 +37,8 @@ import { IEvaluatedProgram, IEvaluatedProgramDay, Program_isEmpty } from "../mod
 import { lb } from "lens-shmens";
 import { Tailwind_colors, Tailwind_semantic } from "../utils/tailwindConfig";
 import { TextareaAutogrow } from "./textareaAutogrow";
+import { CustomMetricFields } from "./customMetricFields";
+import { CustomMetrics_definitions, CustomMetrics_setValue } from "../models/customMetrics";
 import {
   Progress_lbProgress,
   Progress_isCurrent,
@@ -261,6 +263,7 @@ function WorkoutInner(props: IWorkoutViewProps): JSX.Element {
             progress={props.progress}
             dispatch={props.dispatch}
             showNotes={!!props.settings.workoutSettings.showWorkoutNotes}
+            settings={props.settings}
             renderMenu={props.renderHeaderMenu}
           />
           <View>
@@ -424,6 +427,7 @@ interface IWorkoutHeaderProps {
   dispatch: IDispatch;
   description?: string;
   showNotes: boolean;
+  settings: ISettings;
   renderMenu?: (onOpenChange: (isOpen: boolean) => void) => ReactNode;
 }
 
@@ -446,6 +450,18 @@ function WorkoutHeaderInner(props: IWorkoutHeaderProps): JSX.Element {
         <View className={`mt-1 ${props.progress.notes ? "border-b border-background-subtle mb-1 pb-1" : ""}`}>
           <Markdown value={props.description} />
         </View>
+      )}
+      {CustomMetrics_definitions(props.settings, "workout").length > 0 && (
+        <CustomMetricFields
+          definitions={CustomMetrics_definitions(props.settings, "workout")}
+          values={props.progress.customMetrics}
+          onChange={(definition, value) => updateProgress(
+            props.dispatch,
+            [lb<IHistoryRecord>().pi("customMetrics", {})
+              .recordModify((metrics) => CustomMetrics_setValue(metrics, definition, value))],
+            `workout-custom-metric-${definition.id}`
+          )}
+        />
       )}
       {props.showNotes && (
         <View>
